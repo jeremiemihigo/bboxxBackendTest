@@ -1,6 +1,4 @@
-const { ObjectId } = require('mongodb')
 const ModelAgent = require('../Models/Agent')
-const jwt = require('jsonwebtoken')
 const asyncLab = require('async')
 const bcrypt = require('bcrypt')
 const ModelAgentAdmin = require("../Models/AgentAdmin")
@@ -32,7 +30,6 @@ exports.login = async (req, res) => {
     res.status(404).json({ success: false, error: error.message })
   }
 }
-
 exports.resetPassword = (req, res, next) => {
   try {
     const { id } = req.body
@@ -179,7 +176,6 @@ exports.UpdatePasswordAdmin = async (req, res) => {
     return res.status(201).json('Identification incorrect')
   }
 },
-
 exports.LoginAgentAdmin = async (req, res)=>{
   const { username, password } = req.body
   

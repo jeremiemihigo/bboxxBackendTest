@@ -2,7 +2,6 @@ const ModelReponse = require('../Models/Reponse')
 const asyncLab = require('async')
 const _ = require('lodash')
 const modelPeriode = require('../Models/Periode')
-const modelDemande = require("../Models/Demande")
 const modelRapport = require("../Models/Rapport")
 
 module.exports = {
@@ -149,6 +148,37 @@ module.exports = {
       console.log(error)
     }
   },
+  TrackingDefault : (req, res)=>{
+    try {
+    
+      asyncLab.waterfall([
+        function(done){
+          modelPeriode.findOne().lean().then(periode=>{
+            if(periode){
+              done(null, periode)
+            }else{
+              return res.status(201).json("No active period in household visit")
+            }
+          }).catch(function(err){
+            return res.status(201).json("Error "+err)
+          })
+        },
+        function (periode, done) {
+          modelRapport.find({"demande.lot" : periode.periode}).lean().then((response) => {
+            done(response)
+          }).catch(function(err){
+            return res.status(201).json("housekeeping visit error")
+          })
+        },
+      ], function(result){
+        if(result){
+          return res.status(200).json(result)
+        }else{return res.status(201).json("housekeeping visit error")}
+      })
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
   
 }

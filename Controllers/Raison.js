@@ -6,9 +6,9 @@ const modelDemande = require('../Models/Demande')
 module.exports = {
   AddRaison: (req, res) => {
     try {
-      const { raison, codeAgent } = req.body
+      const { raison, codeAgent, type } = req.body
  
-      if (!raison) {
+      if (!raison || !type) {
         return res.status(404).json('Veuillez renseigner les champs')
       }
       asyncLab.waterfall(
@@ -43,7 +43,7 @@ module.exports = {
           },
           function (agent, done) {
             modelRaison
-              .create({ raison : raison.toUpperCase(),savedBy : agent.codeAgent, id: new Date() })
+              .create({ raison : raison.toUpperCase(),savedBy : agent.codeAgent, id: new Date(), type })
               .then((save) => {
                 done(save)
               })
@@ -66,17 +66,7 @@ module.exports = {
   },
   ReadRaison: (req, res) => {
     try {
-      modelRaison
-        .aggregate([
-          {
-            $lookup: {
-              from: 'demandes',
-              localField: 'raison',
-              foreignField: 'raison',
-              as: 'demande',
-            },
-          },
-        ])
+      modelRaison.find({}).lean()
         .then((raison) => {
           if (raison) {
             return res.status(200).json(raison)
@@ -92,13 +82,13 @@ module.exports = {
   },
   UpdateRaison: (req, res) => {
     try {
-      const { id, raison } = req.body
-      if (!id || !raison) {
+      const { id, raison, type } = req.body
+      if (!id || !raison || !type) {
         return res.status(404).json('Veuillez renseigner les champs')
       }
 
       modelRaison
-        .findByIdAndUpdate(id, { raison })
+        .findByIdAndUpdate(id, { raison, type })
         .then((updated) => {
           if (updated) {
             return res.status(200).json(updated)
