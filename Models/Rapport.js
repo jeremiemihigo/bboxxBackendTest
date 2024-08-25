@@ -1,9 +1,16 @@
-const mongoose = require('mongoose')
-const modelDemande = require('./Demande')
+const mongoose = require("mongoose");
+const modelDemande = require("./Demande");
 
 const schema = new mongoose.Schema(
   {
-    codeclient: { type: String, required: true, trim:true, max:12, min:12, uppercase: true }, //BDRC
+    codeclient: {
+      type: String,
+      required: true,
+      trim: true,
+      max: 12,
+      min: 12,
+      uppercase: true,
+    }, //BDRC
     codeCu: { type: String, required: true },
     clientStatut: { type: String, required: true },
     PayementStatut: { type: String, required: true },
@@ -12,20 +19,28 @@ const schema = new mongoose.Schema(
     dateSave: { type: Date, required: true },
     codeAgent: { type: String, required: true },
     nomClient: { type: String, required: true, uppercase: true, trim: true },
-    action: { type: String, required: false },
     idZone: { type: String, required: true },
     idShop: { type: String, required: true },
     //Ajout
-    agentSave : {nom:String},
-    demandeur: { nom: String, 
-      codeAgent: String, fonction: String },
+    adresschange: {
+      type: String,
+      required: true,
+      enum: ["Identique", "N'est pas identique"],
+    },
+    agentSave: { nom: String },
+    confirmeAdresse: {
+      idPlainte: String,
+      value: String,
+    },
+    demandeur: { nom: String, codeAgent: String, fonction: String },
+    followup: { type: Boolean, required: true, default: true },
+    time_followup: { type: Number, required: true },
     demande: {
       typeImage: String,
       createdAt: Date,
       numero: String,
       commune: String,
       updatedAt: Date,
-      createdAt: Date,
       statut: String,
       sector: String,
       lot: String,
@@ -33,20 +48,23 @@ const schema = new mongoose.Schema(
       reference: String,
       sat: String,
       raison: String,
+      jours: Number,
+      file: String,
     },
-    coordonnee : {longitude:String, latitude:String, altitude:String}
+    paid: { type: Boolean, required: false },
+    coordonnee: { longitude: String, latitude: String, altitude: String },
   },
-  { timestamps: true },
-)
-schema.index({ codeclient: 1 })
-schema.index({ idDemande: 1 })
-schema.index({ dateSave: 1 })
-schema.post('save', function (doc, next) {
-  next()
+  { timestamps: true }
+);
+schema.index({ codeclient: 1 });
+schema.index({ idDemande: -1 });
+schema.index({ dateSave: -1 });
+schema.post("save", function (doc, next) {
+  next();
   modelDemande
     .findOneAndUpdate({ idDemande: doc.idDemande }, { $set: { valide: true } })
     .then((response) => {})
-    .catch(function (err) {})
-})
-const model = mongoose.model('Rapport', schema)
-module.exports = model
+    .catch(function (err) {});
+});
+const model = mongoose.model("Rapport", schema);
+module.exports = model;

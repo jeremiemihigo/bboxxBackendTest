@@ -1,12 +1,12 @@
-const ModelReponse = require("../Models/Reponse");
 const asyncLab = require("async");
 const ModelDemande = require("../Models/Demande");
-const ModelAgentAdmin = require("../Models/AgentAdmin");
 const _ = require("lodash");
 const ModelPeriode = require("../Models/Periode");
 const dayjs = require("dayjs");
 const Reclamation = require("../Models/Reclamation");
 const modelRapport = require("../Models/Rapport");
+const modelAppel = require("../Models/Issue/Appel_Issue");
+const { returnTime } = require("../Static/Static_Function");
 
 module.exports = {
   reponse: (req, res, next) => {
@@ -14,6 +14,7 @@ module.exports = {
       const {
         idDemande,
         codeClient,
+        adresschange,
         codeCu,
         clientStatut,
         PayementStatut,
@@ -34,15 +35,16 @@ module.exports = {
         !codeAgent ||
         !codeClient ||
         !clientStatut ||
+        adresschange === "" ||
         !PayementStatut ||
         !consExpDays ||
         !nomClient ||
-        !idShop ||
         !idZone
       ) {
         return res.status(400).json("Veuillez renseigner les champs");
       }
       const dates = new Date().toISOString();
+      const io = req.io;
 
       asyncLab.waterfall(
         [
@@ -73,15 +75,11 @@ module.exports = {
                   const doublon = result.filter(
                     (x) => x.demandeur.fonction === fonctionAgent
                   );
+
                   if (doublon.length > 0) {
                     if (doublon[0].demandeur.codeAgent === codeAgentDemandeur) {
-                      let double = {
-                        idDemande: idDemande,
-                        doublon: doublon[0].idDemande,
-                        agentCo: codeAgent,
-                      };
-                      req.recherche = double;
-                      next();
+                      const time = returnTime(doublon[0].updatedAt, new Date());
+                      done(null, periode, time);
                     } else {
                       let double = {
                         codeclient: doublon[0].codeclient,
@@ -95,18 +93,19 @@ module.exports = {
                         } code : ${doublon[0].demandeur.codeAgent}`,
                         _idDemande,
                       };
+                      io.emit("reponse", { idDemande });
                       req.recherche = double;
                       next();
                     }
                   } else {
-                    done(null, periode);
+                    done(null, periode, 0);
                   }
                 } else {
-                  done(null, periode);
+                  done(null, periode, 0);
                 }
               });
           },
-          function (periode, done) {
+          function (periode, followup, done) {
             ModelDemande.aggregate([
               { $match: { idDemande } },
               {
@@ -122,12 +121,12 @@ module.exports = {
               },
             ]).then((result) => {
               if (result.length > 0) {
-                done(null, result[0]);
+                done(null, result[0], followup);
               }
             });
           },
 
-          function (demande, done) {
+          function (demande, followup, done) {
             modelRapport
               .create({
                 idDemande: demande.idDemande,
@@ -136,12 +135,14 @@ module.exports = {
                 idZone,
                 codeCu,
                 clientStatut,
+                followup: followup > 0 ? true : false,
+                time_followup: followup,
                 PayementStatut,
                 consExpDays,
                 nomClient, // La periode
                 codeAgent: codeAgent,
                 dateSave: dates.split("T")[0],
-
+                adresschange,
                 agentSave: { nom: nomAgentSave },
                 demandeur: {
                   nom: demande.agent.nom,
@@ -163,8 +164,10 @@ module.exports = {
                   createdAt: demande.createdAt,
                   statut: demande.statut,
                   sector: demande.sector,
+                  jours: demande?.jours,
                   lot: demande.lot,
                   cell: demande.cell,
+                  file: demande.file,
                   reference: demande.reference,
                   sat: demande.sat,
                   raison: demande.raison,
@@ -172,28 +175,28 @@ module.exports = {
               })
               .then((response) => {
                 if (response) {
-                  done(null, demande);
+                  done(null, demande, response);
                 } else {
                   done("Erreur d'enregistrement");
                 }
               })
               .catch(function (err) {
-                console.log(err);
-                done("Erreur 2");
+                done("Erreur " + err);
               });
           },
-          function (demande, done) {
+          function (demande, response, done) {
             try {
               Reclamation.deleteMany({ code: demande._id })
                 .then((deleted) => {
-                  done(demande);
+                  done(demande, response);
                 })
                 .catch(function (err) {});
             } catch (error) {}
           },
         ],
-        function (result) {
+        function (result, response) {
           if (result.idDemande) {
+            io.emit("reponse", response);
             return res.status(200).json(result.idDemande);
           } else {
             return res.status(400).json(result);
@@ -207,19 +210,48 @@ module.exports = {
   OneReponse: (req, res) => {
     try {
       const { id } = req.params;
-      modelRapport
-        .find({ codeclient: id })
-        .lean()
-        .then((response) => {
-          if (response.length > 0) {
-            return res.status(200).json(response);
-          } else {
-            return res.status(200).json([]);
-          }
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelRapport
+              .find({ codeclient: id })
+              .lean()
+              .then((response) => {
+                if (response.length > 0) {
+                  done(null, response.reverse());
+                } else {
+                  done(null, []);
+                }
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (reponse, done) {
+            modelAppel
+              .aggregate([
+                { $match: { codeclient: id } },
+                {
+                  $lookup: {
+                    from: "messages",
+                    localField: "idPlainte",
+                    foreignField: "idPlainte",
+                    as: "message",
+                  },
+                },
+              ])
+              .then((result) => {
+                done(reponse, result);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+        ],
+        function (visites, appels) {
+          return res.status(200).json({ visites, appels });
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -289,231 +321,6 @@ module.exports = {
             }
           } catch (error) {
             console.log(error);
-          }
-        }
-      );
-    } catch (error) {
-      console.log(error);
-    }
-  },
-  reponseFetchAll: (req, res, next) => {
-    try {
-      const {
-        idDemande,
-        codeClient,
-        codeCu,
-        clientStatut,
-        PayementStatut,
-        consExpDays,
-        nomClient,
-        idZone,
-        codeAgent,
-        idShop,
-      } = req.recherche;
-      // const {} = req.user
-      if (
-        !idDemande ||
-        !codeAgent ||
-        !codeClient ||
-        !clientStatut ||
-        !PayementStatut ||
-        !consExpDays ||
-        !nomClient ||
-        !idShop ||
-        !idZone
-      ) {
-        return res.status(400).json("Veuillez renseigner les champs");
-      }
-      const dates = new Date().toISOString();
-
-      asyncLab.waterfall(
-        [
-          function (done) {
-            ModelDemande.aggregate([
-              { $match: { idDemande } },
-              {
-                $lookup: {
-                  from: "agents",
-                  localField: "codeAgent",
-                  foreignField: "codeAgent",
-                  as: "agent",
-                },
-              },
-              {
-                $unwind: "$agent",
-              },
-            ])
-              .then((response) => {
-                if (response) {
-                  done(null, response);
-                } else {
-                  done("Demande introuvable ");
-                }
-              })
-              .catch(function (err) {
-                done("Erreur 1");
-              });
-          },
-          function (demande, done) {
-            ModelAgentAdmin.findOne({ codeAgent: codeAgent })
-              .then((agent) => {
-                if (agent) {
-                  done(null, demande, agent);
-                } else {
-                  done("Agent introuvable");
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-
-          function (demande, agent, done) {
-            //agent = co
-            ModelPeriode.findOne({})
-              .limit(1)
-              .then((response) => {
-                if (response) {
-                  done(null, response, demande, agent);
-                } else {
-                  done("Aucune période en cours");
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (periode, demande, agent, done) {
-            ModelReponse.aggregate([
-              {
-                $lookup: {
-                  from: "demandes",
-                  localField: "idDemande",
-                  foreignField: "idDemande",
-                  as: "demande",
-                },
-              },
-              {
-                $unwind: "$demande",
-              },
-              {
-                $lookup: {
-                  from: "agents",
-                  localField: "demande.codeAgent",
-                  foreignField: "codeAgent",
-                  as: "agent",
-                },
-              },
-              {
-                $unwind: "$agent",
-              },
-              {
-                $match: {
-                  codeclient: codeClient.toUpperCase(),
-                  "demande.lot": periode.periode,
-                },
-              },
-            ]).then((result) => {
-              if (result.length > 0) {
-                const doublon = result.filter(
-                  (x) => x.agent.fonction === demande[0].agent.fonction
-                );
-                if (doublon.length > 0) {
-                  if (
-                    doublon[0].demande.codeAgent === demande[0].agent.codeAgent
-                  ) {
-                    let double = {
-                      idDemande: demande[0].idDemande,
-                      doublon: doublon[0].demande.idDemande,
-                      agentCo: codeAgent,
-                    };
-                    req.recherche = double;
-                    next();
-                  } else {
-                    let double = {
-                      codeclient: doublon[0].codeclient,
-                      precedent: doublon[0].demande.idDemande,
-                      present: demande[0].idDemande,
-                      agentCo: codeAgent,
-                      message: `visite effectuée par ${dayjs(
-                        doublon[0]?.demande.createdAt
-                      ).format("DD/MM/YYYY")} par ${
-                        doublon[0].agent.nom
-                      } code : ${doublon[0].agent.codeAgent}`,
-                      _idDemande: demande[0]._id,
-                    };
-                    req.recherche = double;
-                    next();
-                  }
-                } else {
-                  done(null, periode, demande, agent);
-                }
-              } else {
-                done(null, periode, demande, agent);
-              }
-            });
-          },
-
-          function (periode, demande, agent, done) {
-            ModelReponse.create({
-              idDemande: demande[0].idDemande,
-              codeclient: codeClient,
-              idShop,
-              idZone,
-              codeCu,
-              clientStatut,
-              PayementStatut,
-              consExpDays,
-              nomClient,
-              text: periode.periode, // La periode
-              codeAgent: agent.codeAgent,
-              dateSave: dates.split("T")[0],
-
-              agentSave: { nom: agent.nom },
-              demandeur: {
-                nom: demande[0].agent.nom,
-                codeAgent: demande[0].agent.codeAgent,
-                fonction: demande[0].agent.fonction,
-              },
-              coordonnee: {
-                longitude: demande[0].coordonnes.longitude,
-                latitude: demande[0].coordonnes.latitude,
-                altitude: demande[0].coordonnes.altitude,
-              },
-
-              demande: {
-                typeImage: demande[0].typeImage,
-                createdAt: demande[0].createdAt,
-                numero: demande[0].numero,
-                commune: demande[0].commune,
-                updatedAt: demande[0].updatedAt,
-                createdAt: demande[0].createdAt,
-                statut: demande[0].statut,
-                sector: demande[0].sector,
-                lot: demande[0].lot,
-                cell: demande[0].cell,
-                reference: demande[0].reference,
-                sat: demande[0].sat,
-                raison: demande[0].raison,
-              },
-            })
-              .then((response) => {
-                if (response) {
-                  done(demande);
-                } else {
-                  done("Erreur d'enregistrement");
-                }
-              })
-              .catch(function (err) {
-                done("Erreur 2");
-              });
-          },
-        ],
-        function (result) {
-          if (result.idDemande) {
-            return res.status(200).json(result.idDemande);
-          } else {
-            return res.status(400).json(result);
           }
         }
       );

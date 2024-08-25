@@ -50,28 +50,12 @@ module.exports = {
         .aggregate([
           {
             $lookup: {
-              from: "agents",
-              let : {zone : "$idZone"},
-              pipeline: [{ $match: {$expr : { fonction: "tech", codeZone : "$$zone" }} }],
-              as: "techListe",
+              from: "shops",
+              localField: "idZone",
+              foreignField: "idZone",
+              as: "shop",
             },
           },
-          {
-            $lookup: {
-              from: "agents",
-              let : {zone : "$idZone"},
-              pipeline: [{ $match: {$expr : {fonction: "agent", codeZone : "$$zone" }}  }],
-              as: "agentListe",
-            },
-          },
-          {
-            $lookup : {
-              from : "shops",
-              localField:"idZone",
-              foreignField:"idZone",
-              as :"shop"
-            }
-          }
         ])
         .then((response) => {
           return res.status(200).json(response.reverse());

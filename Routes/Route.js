@@ -16,6 +16,7 @@ const {
   LoginAgentAdmin,
   UpdatePassword,
   UpdatePasswordAdmin,
+  resetPasswordAdmin,
 } = require("../Controllers/Login");
 const {
   demande,
@@ -25,8 +26,9 @@ const {
   lectureDemandeBd,
   lectureDemandeMobile,
   ToutesDemandeAttente,
-  deleteDemande,
   updateDemandeAgent,
+  updateDemandeAgentFile,
+  R_Insert_Updated,
 } = require("../Controllers/Demande");
 const {
   Parametre,
@@ -35,6 +37,9 @@ const {
   deleteParams,
   rechercheClient,
   updateClient,
+  setFollow_up,
+  Add_Valve,
+  Read_Valve,
 } = require("../Controllers/Parametre");
 
 const multer = require("multer");
@@ -46,8 +51,9 @@ const {
 } = require("../Controllers/Reponse");
 const {
   Rapport,
-  StatZone,
-  TrackingDefault,
+  ContactClient,
+  Call_ToDay,
+  Refresh_Payment,
 } = require("../Controllers/Rapport");
 const {
   Reclamation,
@@ -58,13 +64,12 @@ const {
 const {
   readPeriodeGroup,
   demandePourChaquePeriode,
-  // searchPaquet,
   chercherUneDemande,
 } = require("../Controllers/Statistique");
 
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "Images/");
+    cb(null, "ImagesController/");
   },
   filename: (req, file, cb) => {
     const image = file.originalname.split(".");
@@ -73,7 +78,6 @@ var storage = multer.diskStorage({
   },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-
     if (ext !== ".jpg" || ext !== ".png") {
       return cb(res.status(400).end("only jpg, png are allowed"), false);
     }
@@ -109,12 +113,13 @@ router.post("/paramatre", Parametre);
 router.post("/postzone", Zone);
 router.post("/postAgent", AddAgent, ReadAgent);
 router.post("/reponsedemande", protectReponse, reponse, Doublon);
-router.post("/reclamation", Reclamation, ReadMessage);
+router.post("/reclamation", Reclamation);
 //Update
 router.put("/zone", AffecterZone);
 router.put("/reponse", updateReponse);
 router.put("/bloquer", BloquerAgent, ReadAgent);
 router.put("/reset", resetPassword, ReadAgent);
+router.put("/resetAdmin", protect, resetPasswordAdmin);
 router.delete("/deleteReclamation/:id", DeleteReclamation);
 router.put("/agent", UpdateAgent, ReadAgent);
 router.post("/manyAgent", InsertManyAgent);
@@ -123,10 +128,8 @@ router.put("/userAdmin", UpdatePasswordAdmin);
 //Mobiles
 router.get("/demandeReponse/:id", ToutesDemandeAgent);
 router.get("/readDemande", DemandeAttente);
-// router.post('/demande',  demande)
 router.post("/demande", upload.single("file"), demande);
 
-router.post("/demandeImage", upload.single("file"));
 router.post("/demandeAgentAll", protect, lectureDemandeBd);
 
 router.post("/login", login);
@@ -138,10 +141,8 @@ router.get("/paquet", protectTech, readPeriodeGroup);
 // router.get('/lot', searchPaquet)
 router.get("/periodeActive", ReadPeriodeActive);
 router.get("/demandePourChaquePeriode", demandePourChaquePeriode);
-router.get("/statZone", StatZone);
 router.delete("/deleteParams", deleteParams);
 
-router.delete("/demande/:id", deleteDemande);
 router.get("/reponseAll", ReponseDemandeLot);
 
 //Raison
@@ -158,21 +159,20 @@ const {
   BloquerAgentAdmin,
   AddTache,
 } = require("../Controllers/AgentAdmin");
-const {
-  AddShop,
-  ReadShop,
-  UpdateOneField,
-  AddResponsable,
-} = require("../Controllers/Shop");
+const { AddShop, ReadShop, UpdateOneField } = require("../Controllers/Shop");
 const { AddAction } = require("../Controllers/Action");
-const {
-  Permission,
-  AddDepartement,
-  ReadPermission,
-  ReadDepartement,
-} = require("../Controllers/Permission");
+
 const { AddSat } = require("../Controllers/Sat");
 const { Visited } = require("../Controllers/Tracking");
+const {
+  set_Plainte_Shop,
+  set_backOffice,
+} = require("../Controllers/Permission");
+const {
+  Delete_communication,
+  Communication,
+  ReadCommuniquer,
+} = require("../Controllers/Communication");
 router.post("/ajuster", Ajuster);
 router.post("/raison", AddRaison);
 router.get("/raison", ReadRaison);
@@ -182,14 +182,18 @@ router.put("/raison", UpdateRaison);
 router.post("/shop", AddShop, ReadShop);
 router.get("/shop", ReadShop);
 router.put("/shop", UpdateOneField);
-router.put("/responsableTicket", protect, AddResponsable, ReadShop);
 
 //Agent
 router.post("/addAdminAgent", AddAdminAgent);
-router.put("/resetPasswordAgentAdmin", protect, ResetPasswords);
 router.get("/readAgentAdmin", protect, ReadAgentAdmin);
 router.put("/bloquerAgentAdmin", protect, BloquerAgentAdmin);
-router.put("/updateDemande", upload.single("file"), updateDemandeAgent);
+router.put(
+  "/updateDemandeFile",
+  upload.single("file"),
+  updateDemandeAgentFile,
+  R_Insert_Updated
+);
+router.put("/updateDemande", updateDemandeAgent, R_Insert_Updated);
 router.get("/idDemande/:id", protect, chercherUneDemande);
 
 //Actions
@@ -198,17 +202,24 @@ router.get("/demandeIncorrect", protect, demandeIncorrect);
 router.get("/doublon", ReadDoublon);
 router.post("/conformite", NonConformes);
 //================================================================Departement et permission================================================================================================
-router.post("/permission", Permission);
-router.post("/departement", AddDepartement);
-router.get("/permission", ReadPermission);
-router.get("/departement", ReadDepartement);
+
 router.put("/addTache", AddTache);
 
+router.post("/contact", protect, ContactClient);
 //Tracking default
-router.get("/trackingLoading", TrackingDefault);
 router.post("/visited", Visited);
-
 //Sat
 router.post("/addsat", AddSat);
+
+router.post("/setplainteshop", protect, set_Plainte_Shop);
+router.post("/backoffice", protect, set_backOffice);
+
+router.post("/periode", protect, setFollow_up);
+router.post("/valve", Add_Valve);
+router.get("/call_today", Call_ToDay);
+router.post("/refresh_payment", protect, Refresh_Payment);
+router.post("/communication", protect, upload.single("file"), Communication);
+router.delete("/communication", protect, Delete_communication);
+router.get("/communication", protect, ReadCommuniquer);
 
 module.exports = router;

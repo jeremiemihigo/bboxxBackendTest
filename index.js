@@ -1,53 +1,109 @@
-"use strict";
-
 const express = require("express");
+const app = express();
 const path = require("path");
 const cors = require("cors");
-const connectDB = require("./config/Connection");
-const app = express();
-app.use(cors());
-const bodyParser = require("body-parser");
-require("dotenv").config();
-connectDB();
-const { PeriodeDemande } = require("./Controllers/Parametre");
 
+app.use(cors());
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ limit: "100mb" }));
+
+const bodyParser = require("body-parser");
 app.use(bodyParser.json());
+
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const port = process.env.PORT || 4000;
+const { PeriodeDemande } = require("./Controllers/Parametre");
 
-const bboxx = require("./Routes/Route");
-const conge = require("./Routes/Conge");
-app.use(PeriodeDemande);
-app.use("/bboxx/support", bboxx);
-app.use("/admin/conge", conge);
+const connectDB = require("./config/Connection");
+
+app.use("/bboxx/support", require("./Routes/Route"));
+app.use("/admin/conge", require("./Routes/Conge"));
+app.use("/issue", require("./Routes/Issue"));
 app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
+app.use("/bboxx/file", express.static(path.resolve(__dirname, "Fichiers")));
 
-// Middleware
-app.get("/message", (req, res) => {
-  return res.status(200).json([
-    {
-      numero: "+243979527648",
-      message: "premier message au premier numero",
-    },
-    {
-      numero: "+243971828749",
-      message: "deuxieme message au deuxieme numero",
-    },
-    {
-      numero: "+243992736928",
-      message: "troisieme message",
-    },
-    {
-      numero: "+243979527648",
-      message:
-        "Bonjour Monsieur votre eleve a reussit avec la mention S, veuillez passer à la direction pour plus de précision",
-    },
-  ]);
+const http = require("http");
+const server = http.createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
 });
 
+require("dotenv").config();
+connectDB();
+app.use(PeriodeDemande);
+
+let onlineuser = [];
+let onlineuserTerrain = [];
+
+const addNewUser = (codeAgent, nom, socketId, fonction) => {
+  if (fonction === "admin") {
+    if (
+      onlineuser.filter((user) => user.codeAgent === codeAgent).length === 0
+    ) {
+      onlineuser.push({
+        codeAgent,
+        nom,
+        socketId,
+      });
+    } else {
+      const agents = onlineuser.filter((x) => x.codeAgent !== codeAgent);
+      agents.push({
+        codeAgent,
+        nom,
+        socketId,
+      });
+    }
+  } else {
+    if (
+      onlineuserTerrain.filter((user) => user.codeAgent === codeAgent)
+        .length === 0
+    ) {
+      onlineuserTerrain.push({
+        codeAgent,
+        socketId,
+      });
+    } else {
+      const agents = onlineuserTerrain.filter((x) => x.codeAgent !== codeAgent);
+      agents.push({
+        codeAgent,
+        socketId,
+      });
+    }
+  }
+};
+const removeUser = (socketId) => {
+  if (onlineuser.length > 0) {
+    onlineuser = onlineuser.filter((user) => user.socketId !== socketId);
+  }
+};
+
+io.on("connection", (socket) => {
+  socket.on("newUser", (donner) => {
+    const { codeAgent, nom, fonction } = donner;
+    addNewUser(codeAgent, nom, socket.id, fonction);
+    io.emit("userConnected", onlineuser);
+  });
+  socket.on("disconnect", () => {
+    removeUser(socket.id);
+    io.emit("userConnected", onlineuser);
+  });
+});
+
+app.use((req, res, next) => {
+  req.io = io;
+  req.users = onlineuser;
+  return next();
+});
+
+app.get("/test", (req, res) => {
+  return res.status(200).json("test");
+});
 //Start server
-app.listen(port, () => {
+const port = process.env.PORT || 40002;
+server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 

@@ -2,6 +2,7 @@ const { ObjectId } = require("mongodb");
 const modelParametre = require("../Models/Parametre");
 const modelPeriode = require("../Models/Periode");
 const asyncLab = require("async");
+const modelValve = require("../Models/Valve");
 
 module.exports = {
   Parametre: (req, res) => {
@@ -24,36 +25,37 @@ module.exports = {
     }
   },
   ReadParametre: (req, res) => {
-    const recherche = req.recherche
-    let match = recherche ? {$match : {_id : new ObjectId(recherche)}}:{}
+    const recherche = req.recherche;
+    let match = recherche ? { $match: { _id: new ObjectId(recherche) } } : {};
     try {
-      modelParametre.aggregate([
-        match,
-        {
-          $lookup: {
-            from : "zones",
-            localField:"region",
-            foreignField:"idZone",
-            as :"region"
-          }
-        },
-        {
-          $unwind:"$region"
-        },
-        {
-          $lookup: {
-            from : "shops",
-            localField:"shop",
-            foreignField:"idShop",
-            as :"shop"
-          }
-        },
-        {
-          $unwind:"$shop"
-        }
-
-      ]).then((response) => {
-          let data = recherche ? response[0] : response
+      modelParametre
+        .aggregate([
+          match,
+          {
+            $lookup: {
+              from: "zones",
+              localField: "region",
+              foreignField: "idZone",
+              as: "region",
+            },
+          },
+          {
+            $unwind: "$region",
+          },
+          {
+            $lookup: {
+              from: "shops",
+              localField: "shop",
+              foreignField: "idShop",
+              as: "shop",
+            },
+          },
+          {
+            $unwind: "$shop",
+          },
+        ])
+        .then((response) => {
+          let data = recherche ? response[0] : response;
           return res.status(200).json(data);
         })
         .catch(function (err) {
@@ -161,34 +163,101 @@ module.exports = {
       }
 
       asyncLab.waterfall([
-        function(done){
-          modelParametre.findOneAndUpdate(
-            { customer },
-            {
-              $set: {
-                customer_cu: codeCu,
-                shop: idShop,
-                region: idZone,
-                nomClient,
+        function (done) {
+          modelParametre
+            .findOneAndUpdate(
+              { customer },
+              {
+                $set: {
+                  customer_cu: codeCu,
+                  shop: idShop,
+                  region: idZone,
+                  nomClient,
+                },
               },
-            },
-            {
-              new : true
-            }
-          ).then(response=>{
-            done(null, response)
-           
-          }).catch(function(err){console.log(err)});
+              {
+                new: true,
+              }
+            )
+            .then((response) => {
+              done(null, response);
+            })
+            .catch(function (err) {
+              console.log(err);
+            });
         },
-        function(client, done){
-          if(client){
-            req.recherche = client._id
-            next()
+        function (client, done) {
+          if (client) {
+            req.recherche = client._id;
+            next();
           }
-        }
-      ])
+        },
+      ]);
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  //set follow up
+  setFollow_up: (req, res) => {
+    try {
+      const { data } = req.body;
+      modelPeriode
+        .updateOne({}, { $set: data }, { new: true })
+        .then((result) => {
+          if (result) {
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        })
+        .catch(function (err) {
+          return res.status(201).json("Error " + err);
+        });
+    } catch (error) {
+      console.log(error);
+    }
+  },
 
-      
+  Add_Valve: (req, res) => {
+    try {
+      const io = req.io;
+      const { nom } = req.user;
+      const { body, title } = req.body;
+      if (!body || !title) {
+        return res.status(201).json("Veuillez renseigner les champs");
+      }
+      modelValve
+        .create({
+          body,
+          title,
+          savedBy: nom,
+        })
+        .then((result) => {
+          if (result) {
+            io.emit("valve", result);
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  Read_Valve: (req, res) => {
+    try {
+      modelValve
+        .find({})
+        .lean()
+        .then((result) => {
+          return res.status(200).json(result.reverse());
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
     } catch (error) {
       console.log(error);
     }
