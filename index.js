@@ -99,7 +99,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/test", (req, res) => {
-  return res.status(200).json("test");
+  return res.status(200).json("testing");
 });
 //Start server
 const port = process.env.PORT || 40002;
