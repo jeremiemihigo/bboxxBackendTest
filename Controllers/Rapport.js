@@ -71,7 +71,7 @@ module.exports = {
         "demande.lot": 1,
         "demande.cell": 1,
         "demande.reference": 1,
-        "demande.sat": 1,
+        "demande.sat": 1,"demande.file": 1,
         "demande.raison": 1,
         "coordonnee.longitude": 1,
         "coordonnee.latitude": 1,
