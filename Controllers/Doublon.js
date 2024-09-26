@@ -8,6 +8,7 @@ const modelPeriode = require("../Models/Periode");
 module.exports = {
   Doublon: (req, res) => {
     try {
+      console.log(req.recherche);
       if (!req.recherche.present) {
         const { idDemande, agentCo, doublon } = req.recherche;
         modelDemande

@@ -2,6 +2,7 @@ const modelRapport = require("../Models/Rapport");
 const modelAppel = require("../Models/Issue/Appel_Issue");
 const asyncLab = require("async");
 const { differenceDays } = require("../Static/Static_Function");
+const modelCorbeille = require("../Models/Corbeille");
 
 module.exports = {
   Rapport: (req, res) => {
@@ -81,65 +82,34 @@ module.exports = {
         adresschange: 1,
         time_followup: 1,
       };
-      modelRapport
-        .find(match, project)
-        .lean()
-        .then((response) => {
-          return res.status(200).json(response);
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
-    } catch (error) {
-      console.log(error);
-    }
-  },
-  IssueRapport: (req, res) => {
-    try {
-      const { debut, fin } = req.body;
-
-      if (!debut || !fin) {
-        return res
-          .status(200)
-          .json({ error: true, message: "Veuillez renseigner les dates" });
-      }
-      let match = {
-        dateSave: {
-          $gte: new Date(debut),
-          $lte: new Date(fin),
+      const { nom } = req.user;
+      asyncLab.waterfall([
+        function (done) {
+          modelCorbeille
+            .create({
+              name: nom,
+              date: new Date().toISOString().split("T")[0],
+              texte: `Extraction du rapport allant du ${debut} au ${fin}`,
+            })
+            .then((corbeille) => {
+              done(null, corbeille);
+            })
+            .catch(function (err) {
+              console.log(err);
+            });
         },
-        type: "appel",
-        open: false,
-      };
-
-      modelAppel
-        .find(match, {
-          submitedBy: 1,
-          codeclient: 1,
-          nomClient: 1,
-          time_delai: 1,
-          contact: 1,
-          typePlainte: 1,
-          plainteSelect: 1,
-          dateSave: 1,
-          fullDateSave: 1,
-          recommandation: 1,
-          provenance: 1,
-          property: 1,
-          dateClose: 1,
-          type: 1,
-          resultat: 1,
-          statut: 1,
-          delai: 1,
-          shop: 1,
-        })
-        .lean()
-        .then((response) => {
-          return res.status(200).json(response.reverse());
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
+        function (corbei, done) {
+          modelRapport
+            .find(match, project)
+            .lean()
+            .then((response) => {
+              return res.status(200).json(response);
+            })
+            .catch(function (err) {
+              console.log(err);
+            });
+        },
+      ]);
     } catch (error) {
       console.log(error);
     }
@@ -215,7 +185,17 @@ module.exports = {
   },
   Technical: (req, res) => {
     try {
-      const { debut, fin } = req.body;
+      const { debut, fin, provenance } = req.body;
+      const prov = provenance.split(",");
+
+      const debut_Date = new Date(debut);
+      const fin_Date = new Date(fin);
+      const lastDebut = new Date(
+        debut_Date.setMonth(debut_Date.getMonth() - 1)
+      ).toISOString();
+      const lastfin = new Date(
+        fin_Date.setMonth(fin_Date.getMonth() - 1)
+      ).toISOString();
 
       if (!debut || !fin) {
         return res
@@ -223,45 +203,46 @@ module.exports = {
           .json({ error: true, message: "Veuillez renseigner les dates" });
       }
       modelAppel
-        .find(
+        .aggregate([
           {
-            dateSave: {
-              $gte: new Date(debut),
-              $lte: new Date(fin),
+            $match: {
+              $or: [
+                {
+                  dateSave: {
+                    $gte: new Date(debut),
+                    $lte: new Date(fin),
+                  },
+                  property: { $in: prov },
+                },
+                {
+                  dateSave: {
+                    $gte: new Date(lastDebut),
+                    $lte: new Date(lastfin),
+                  },
+                  property: { $in: prov },
+                },
+              ],
             },
-            type: "ticket",
           },
           {
-            submitedBy: 1,
-            codeclient: 1,
-            nomClient: 1,
-            time_delai: 1,
-            contact: 1,
-            periode: 1,
-            priorite: 1,
-            typePlainte: 1,
-            plainteSelect: 1,
-            dateSave: 1,
-            fullDateSave: 1,
-            recommandation: 1,
-            provenance: 1,
-            property: 1,
-            dateClose: 1,
-            type: 1,
-            resultat: 1,
-            createdBy: 1,
-            technicien: 1,
-            verification: 1,
-            periode: 1,
-            adresse: 1,
-            statut: 1,
-            delai: 1,
-            shop: 1,
-            ticket: 1,
-            idPlainte: 1,
-          }
-        )
+            $addFields: {
+              isValide: {
+                $cond: {
+                  if: {
+                    $and: [
+                      { $gte: ["$dateSave", new Date(debut)] },
+                      { $lte: ["$dateSave", new Date(fin)] },
+                    ],
+                  },
+                  then: "new_value",
+                  else: "old_value",
+                },
+              },
+            },
+          },
+        ])
         .then((result) => {
+          console.log(result);
           return res.status(200).json(result);
         })
         .catch(function (err) {

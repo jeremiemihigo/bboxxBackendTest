@@ -9,6 +9,8 @@ function FormaDate(dates) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+const _ = require("lodash");
+
 module.exports = {
   generateString: (length) => {
     const caractere = "123456789ABCDEFGHIJKLMNPRSTUVWXYZ";
@@ -53,6 +55,45 @@ module.exports = {
       return 1;
     } else {
       return resultat.toFixed(0);
+    }
+  },
+  ReturnDelai_Issue: (fullDateSave, minutes) => {
+    let resultat =
+      (new Date(fullDateSave).getTime() - new Date().getTime()) / 60000;
+    if (resultat > minutes) {
+      return "OUT SLA";
+    } else {
+      return "IN SLA";
+    }
+  },
+  return_time_Delai: (statut, deedline) => {
+    try {
+      const datetime = new Date();
+      const a = _.filter(deedline, { plainte: statut });
+      if (a.length > 0) {
+        //si la plainte existe je cherche le jour
+        let critere = a[0].critere.filter((x) => x.jour === datetime.getDay());
+        if (critere.length > 0) {
+          //si le critere existe
+          let debutHeure = critere[0].debut.split(":")[0];
+          let debutMinutes = critere[0].debut.split(":")[1];
+          if (
+            datetime.getHours() > parseInt(debutHeure) ||
+            (datetime.getHours() === parseInt(debutHeure) &&
+              datetime.getMinutes() >= parseInt(debutMinutes))
+          ) {
+            return critere[0]?.delai;
+          } else {
+            return a[0]?.defaut;
+          }
+        } else {
+          return a[0]?.defaut;
+        }
+      } else {
+        return 0;
+      }
+    } catch (error) {
+      console.log(error);
     }
   },
 };

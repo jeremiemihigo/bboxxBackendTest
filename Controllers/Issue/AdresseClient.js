@@ -1,7 +1,9 @@
 const modelRapport = require("../../Models/Rapport");
 const modelPlainte = require("../../Models/Issue/Appel_Issue");
+const modelDelai = require("../../Models/Issue/Delai");
 const asyncLab = require("async");
 const moment = require("moment");
+const { return_time_Delai } = require("../../Static/Static_Function");
 const regularisation = "Regularisation";
 const repo_volontaire = "Repossession volontaire";
 const downgrade = "Downgrade";
@@ -34,7 +36,6 @@ module.exports = {
         )
         .then((result) => {
           if (result) {
-            io.emit("plainte", result);
             return res.status(200).json(result);
           } else {
             return res.status(201).json("please try again");
@@ -52,93 +53,83 @@ module.exports = {
       const io = req.io;
       const {
         raison,
-        fullDate,
         codeclient,
         shop,
-        property,
         contact,
         nomClient,
         plainteSelect,
         typePlainte,
-        time_delai,
       } = req.body;
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       const { filename } = req.file;
+
+      const date = new Date();
       const { nom } = req.user;
       if (
         !raison ||
         !codeclient ||
         !shop ||
         !contact ||
-        !time_delai ||
         !filename ||
         !nomClient ||
         !plainteSelect ||
-        !typePlainte ||
-        !fullDate ||
-        !property
+        !typePlainte
       ) {
         return res.status(201).json("Veuillez renseigner les champs");
       }
-      asyncLab.waterfall([
-        function (done) {
-          modelPlainte
-            .findOne({
-              codeclient: codeclient.toUpperCase().trim(),
-              statut: { $not: { $in: ["resolved", "closed"] } },
-            })
-            .lean()
-            .then((result) => {
-              if (result) {
-                return res
-                  .status(201)
-                  .json(
-                    "Une autre plainte est en cours de traitement pour ce client"
-                  );
-              } else {
-                done(null, result);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (result, done) {
-          const periode = moment(new Date()).format("MM-YYYY");
-          modelPlainte
-            .create({
-              submitedBy: nom,
-              codeclient,
-              nomClient,
-              time_delai,
-              contact,
-              typePlainte,
-              periode,
-              type: "support",
-              plainteSelect,
-              statut: desengagement,
-              fullDateSave: fullDate,
-              property,
-              shop,
-              operation: "backoffice",
-              idPlainte: new Date().getTime(),
-              desangagement: { raison, filename },
-              dateSave: new Date(fullDate).toISOString().split("T")[0],
-            })
-            .then((response) => {
-              if (response) {
-                io.emit("plainte", response);
-
-                return res.status(200).json(response);
-              } else {
-                return res.status(201).json("Error");
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-              return res.status(201).json("Error " + err);
-            });
-        },
-      ]);
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
+            const periode = moment(new Date()).format("MM-YYYY");
+            modelPlainte
+              .create({
+                submitedBy: nom,
+                codeclient,
+                nomClient,
+                time_delai,
+                contact,
+                typePlainte,
+                periode,
+                type: "support",
+                plainteSelect,
+                statut: desengagement,
+                fullDateSave: date,
+                property,
+                shop,
+                operation: "backoffice",
+                idPlainte: new Date().getTime(),
+                desangagement: { raison, filename },
+                dateSave: date.toISOString().split("T")[0],
+              })
+              .then((response) => {
+                done(response);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+        ],
+        function (response) {
+          if (response) {
+            io.emit("plainte", response);
+            return res.status(200).json(response);
+          } else {
+            return res.status(201).json("Error");
+          }
+        }
+      );
     } catch (error) {
       return res.status(201).json("Error " + error);
     }
@@ -150,76 +141,77 @@ module.exports = {
         codeclient,
         shop,
         contact,
-        time_delai,
         nomClient,
         plainteSelect,
         typePlainte,
-        fullDate,
-        property,
         num_synchro,
         materiel,
       } = req.body;
-
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
+      const date = new Date();
       const { nom } = req.user;
-      asyncLab.waterfall([
-        function (done) {
-          modelPlainte
-            .findOne({
-              codeclient: codeclient.toUpperCase().trim(),
-              statut: { $not: { $in: ["resolved", "closed"] } },
-            })
-            .then((result) => {
-              if (result) {
-                return res
-                  .status(201)
-                  .json(
-                    "Un autre plainte est en cours de traitement pour ce client"
-                  );
-              } else {
-                done(null, result);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (r, done) {
-          const periode = moment(new Date()).format("MM-YYYY");
-          modelPlainte
-            .create({
-              submitedBy: nom,
-              codeclient,
-              nomClient,
-              periode,
-              time_delai,
-              contact,
-              typePlainte,
-              type: "support",
-              plainteSelect,
-              statut: repo_volontaire,
-              fullDateSave: fullDate,
-              property,
-              shop,
-              operation: "backoffice",
-              idPlainte: new Date().getTime(),
-              repo_volontaire: { num_synchro, materiel },
-              dateSave: new Date(fullDate).toISOString().split("T")[0],
-            })
-            .then((result) => {
-              if (result) {
-                io.emit("plainte", result);
-
-                return res.status(200).json(result);
-              } else {
-                return res.status(201).json("Error");
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-              return res.status(201).json("Error " + err);
-            });
-        },
-      ]);
+      if (
+        !materiel ||
+        !num_synchro ||
+        !plainteSelect ||
+        !typePlainte ||
+        !codeclient
+      ) {
+        return res.status(201).json("Veuillez renseigner les champs");
+      }
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
+            const periode = moment(new Date()).format("MM-YYYY");
+            modelPlainte
+              .create({
+                submitedBy: nom,
+                codeclient,
+                nomClient,
+                periode,
+                time_delai,
+                contact,
+                typePlainte,
+                type: "support",
+                plainteSelect,
+                statut: repo_volontaire,
+                fullDateSave: date,
+                property,
+                shop,
+                operation: "backoffice",
+                idPlainte: new Date().getTime(),
+                repo_volontaire: { num_synchro, materiel },
+                dateSave: new Date().toISOString().split("T")[0],
+              })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            io.emit("plainte", result);
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -232,28 +224,23 @@ module.exports = {
         codeclient,
         shop,
         contact,
-        time_delai,
         nomClient,
         plainteSelect,
         typePlainte,
-        fullDate,
-        property,
         jours,
         cu,
         date_coupure,
         raison,
       } = req.body;
+      const date = new Date();
 
       if (
         !codeclient ||
         !shop ||
         !contact ||
-        !time_delai ||
         !nomClient ||
         !plainteSelect ||
         !typePlainte ||
-        !fullDate ||
-        !property ||
         !jours ||
         !cu ||
         !date_coupure ||
@@ -261,64 +248,60 @@ module.exports = {
       ) {
         return res.status(201).json("Veuillez renseigner les champs");
       }
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       const { nom } = req.user;
-      asyncLab.waterfall([
-        function (done) {
-          modelPlainte
-            .findOne({
-              codeclient: codeclient.toUpperCase().trim(),
-              statut: { $not: { $in: ["resolved", "closed"] } },
-            })
-            .then((result) => {
-              if (result) {
-                return res
-                  .status(201)
-                  .json(
-                    "Un autre plainte est en cours de traitement pour ce client"
-                  );
-              } else {
-                done(null, result);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (r, done) {
-          modelPlainte
-            .create({
-              submitedBy: nom,
-              codeclient,
-              nomClient,
-              time_delai,
-              contact,
-              periode,
-              typePlainte,
-              type: "support",
-              plainteSelect,
-              statut: regularisation,
-              fullDateSave: fullDate,
-              property,
-              shop,
-              operation: "backoffice",
-              idPlainte: new Date().getTime(),
-              regularisation: { jours, cu, date_coupure, raison },
-              dateSave: new Date(fullDate).toISOString().split("T")[0],
-            })
-            .then((result) => {
-              if (result) {
-                io.emit("plainte", result);
-
-                return res.status(200).json(result);
-              } else {
-                return res.status(201).json("Error");
-              }
-            })
-            .catch(function (err) {
-              return res.status(201).json("Error " + err);
-            });
-        },
-      ]);
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
+            modelPlainte
+              .create({
+                submitedBy: nom,
+                codeclient,
+                nomClient,
+                time_delai,
+                contact,
+                periode,
+                typePlainte,
+                type: "support",
+                plainteSelect,
+                statut: regularisation,
+                fullDateSave: date,
+                property,
+                shop,
+                operation: "backoffice",
+                idPlainte: new Date().getTime(),
+                regularisation: { jours, cu, date_coupure, raison },
+                dateSave: new Date().toISOString().split("T")[0],
+              })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            io.emit("plainte", result);
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -330,90 +313,81 @@ module.exports = {
         codeclient,
         shop,
         contact,
-        time_delai,
         nomClient,
         plainteSelect,
         typePlainte,
-        fullDate,
-        property,
         kit,
         num_synchro,
       } = req.body;
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
+      const date = new Date();
 
       if (
         !codeclient ||
         !shop ||
         !contact ||
-        !time_delai ||
         !nomClient ||
         !plainteSelect ||
         !typePlainte ||
-        !fullDate ||
-        !property ||
         !kit ||
         !num_synchro
       ) {
         return res.status(201).json("Veuillez renseigner les champs");
       }
       const { nom } = req.user;
-      asyncLab.waterfall([
-        function (done) {
-          modelPlainte
-            .findOne({
-              codeclient: codeclient.toUpperCase().trim(),
-              statut: { $not: { $in: ["resolved", "closed"] } },
-            })
-            .then((result) => {
-              if (result) {
-                return res
-                  .status(201)
-                  .json(
-                    "Un autre plainte est en cours de traitement pour ce client"
-                  );
-              } else {
-                done(null, result);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (r, done) {
-          const periode = moment(new Date()).format("MM-YYYY");
-          modelPlainte
-            .create({
-              submitedBy: nom,
-              codeclient,
-              periode,
-              nomClient,
-              time_delai,
-              contact,
-              typePlainte,
-              type: "support",
-              plainteSelect,
-              statut: downgrade,
-              fullDateSave: fullDate,
-              property,
-              shop,
-              operation: "backoffice",
-              idPlainte: new Date().getTime(),
-              downgrade: { kit, num_synchro },
-              dateSave: new Date(fullDate).toISOString().split("T")[0],
-            })
-            .then((result) => {
-              if (result) {
-                io.emit("plainte", result);
-
-                return res.status(200).json(result);
-              } else {
-                return res.status(201).json("Error");
-              }
-            })
-            .catch(function (err) {
-              return res.status(201).json("Error " + err);
-            });
-        },
-      ]);
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
+            const periode = moment(new Date()).format("MM-YYYY");
+            modelPlainte
+              .create({
+                submitedBy: nom,
+                codeclient,
+                periode,
+                nomClient,
+                time_delai,
+                contact,
+                typePlainte,
+                type: "support",
+                plainteSelect,
+                statut: downgrade,
+                fullDateSave: date,
+                property,
+                shop,
+                operation: "backoffice",
+                idPlainte: date.getTime(),
+                downgrade: { kit, num_synchro },
+                dateSave: date.toISOString().split("T")[0],
+              })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            io.emit("plainte", result);
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -425,88 +399,79 @@ module.exports = {
         codeclient,
         shop,
         contact,
-        time_delai,
         nomClient,
         plainteSelect,
         typePlainte,
-        fullDate,
-        property,
         materiel,
       } = req.body;
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
+      const date = new Date();
 
       if (
         !codeclient ||
         !shop ||
         !contact ||
-        !time_delai ||
         !nomClient ||
         !plainteSelect ||
         !typePlainte ||
-        !fullDate ||
-        !property ||
         !materiel
       ) {
         return res.status(201).json("Veuillez renseigner les champs");
       }
       const { nom } = req.user;
-      asyncLab.waterfall([
-        function (done) {
-          modelPlainte
-            .findOne({
-              codeclient: codeclient.toUpperCase().trim(),
-              statut: { $not: { $in: ["resolved", "closed"] } },
-            })
-            .then((result) => {
-              if (result) {
-                return res
-                  .status(201)
-                  .json(
-                    "Un autre plainte est en cours de traitement pour ce client"
-                  );
-              } else {
-                done(null, result);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (r, done) {
-          const periode = moment(new Date()).format("MM-YYYY");
-          modelPlainte
-            .create({
-              submitedBy: nom,
-              codeclient,
-              periode,
-              nomClient,
-              time_delai,
-              contact,
-              typePlainte,
-              type: "support",
-              plainteSelect,
-              statut: upgrade,
-              fullDateSave: fullDate,
-              property,
-              shop,
-              operation: "backoffice",
-              idPlainte: new Date().getTime(),
-              upgrade: materiel,
-              dateSave: new Date(fullDate).toISOString().split("T")[0],
-            })
-            .then((result) => {
-              if (result) {
-                io.emit("plainte", result);
-
-                return res.status(200).json(result);
-              } else {
-                return res.status(201).json("Error");
-              }
-            })
-            .catch(function (err) {
-              return res.status(201).json("Error " + err);
-            });
-        },
-      ]);
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
+            const periode = moment(new Date()).format("MM-YYYY");
+            modelPlainte
+              .create({
+                submitedBy: nom,
+                codeclient,
+                periode,
+                nomClient,
+                time_delai,
+                contact,
+                typePlainte,
+                type: "support",
+                plainteSelect,
+                statut: upgrade,
+                fullDateSave: date,
+                property,
+                shop,
+                operation: "backoffice",
+                idPlainte: new Date().getTime(),
+                upgrade: materiel,
+                dateSave: date.toISOString().split("T")[0],
+              })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            io.emit("plainte", result);
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -516,6 +481,7 @@ module.exports = {
       const { idPlainte, raison } = req.body;
       const { nom } = req.user;
       const date = new Date();
+      const io = req.io;
       if (!idPlainte || !raison) {
         return res
           .status(201)
@@ -538,7 +504,19 @@ module.exports = {
                 console.log(err);
               });
           },
-          function (plainte, done) {
+          function (ticket, done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, ticket, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (plainte, time_delai, done) {
             modelPlainte
               .findOneAndUpdate(
                 { idPlainte },
@@ -546,6 +524,7 @@ module.exports = {
                   $set: {
                     statut: fermeture,
                     operation: "backoffice",
+                    time_delai,
                   },
                   $push: {
                     resultat: {
@@ -570,6 +549,7 @@ module.exports = {
         ],
         function (data) {
           if (data) {
+            io.emit("plainte", data);
             return res.status(200).json(data);
           } else {
             return res.status(201).json("Error");
@@ -587,13 +567,12 @@ module.exports = {
         codeclient,
         shop,
         contact,
-        time_delai,
         nomClient,
         plainteSelect,
         typePlainte,
-        property,
         adresse,
       } = req.body;
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       if (
         !codeclient ||
         !shop ||
@@ -607,37 +586,53 @@ module.exports = {
       }
       const { nom } = req.user;
       const periode = moment(new Date()).format("MM-YYYY");
-      modelPlainte
-        .create({
-          submitedBy: nom,
-          codeclient,
-          operation: "backoffice",
-          nomClient,
-          time_delai,
-          contact,
-          statut: customer_Info,
-          periode,
-          typePlainte,
-          shop,
-          idPlainte: new Date().getTime(),
-          plainteSelect,
-          dateSave: new Date().toISOString().split("T")[0],
-          fullDateSave: new Date(),
-          property,
-          adresse,
-          type: "support",
-        })
-        .then((result) => {
-          if (result) {
-            io.emit("plainte", result);
-            return res.status(200).json(result);
-          } else {
-            return res.status(201).json("Error");
-          }
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
+      asyncLab.waterfall([
+        function (done) {
+          modelDelai
+            .find({})
+            .lean()
+            .then((deedline) => {
+              const tab = return_time_Delai("escalade", deedline);
+              done(null, tab);
+            })
+            .catch(function (err) {
+              console.log(err);
+            });
+        },
+        function (time_delai, done) {
+          modelPlainte
+            .create({
+              submitedBy: nom,
+              codeclient,
+              operation: "backoffice",
+              nomClient,
+              time_delai,
+              contact,
+              statut: customer_Info,
+              periode,
+              typePlainte,
+              shop,
+              idPlainte: new Date().getTime(),
+              plainteSelect,
+              dateSave: new Date().toISOString().split("T")[0],
+              fullDateSave: new Date(),
+              property,
+              adresse,
+              type: "support",
+            })
+            .then((result) => {
+              if (result) {
+                io.emit("plainte", result);
+                return res.status(200).json(result);
+              } else {
+                return res.status(201).json("Error");
+              }
+            })
+            .catch(function (err) {
+              console.log(err);
+            });
+        },
+      ]);
     } catch (error) {
       console.log(error);
     }
@@ -649,75 +644,68 @@ module.exports = {
         codeclient,
         shop,
         contact,
-        time_delai,
         nomClient,
         plainteSelect,
         typePlainte,
-        fullDateSave,
-        property,
-      } = req.body.data;
+      } = req.body;
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
 
       if (
         !codeclient ||
         !shop ||
         !contact ||
-        !time_delai ||
         !nomClient ||
         !plainteSelect ||
-        !typePlainte ||
-        !fullDateSave ||
-        !property
+        !typePlainte
       ) {
         return res.status(201).json("Veuillez renseigner les champs");
       }
       const { nom } = req.user;
-      asyncLab.waterfall([
-        function (done) {
-          modelPlainte
-            .findOne({
-              codeclient: codeclient.toUpperCase().trim(),
-              type: "support",
-            })
-            .then((result) => {
-              if (result) {
-                return res
-                  .status(201)
-                  .json(
-                    "Un autre plainte est en cours de traitement pour ce client"
-                  );
-              } else {
-                done(null, result);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (r, done) {
-          const periode = moment(new Date()).format("MM-YYYY");
-          let data = req.body.data;
-          data.periode = periode;
-          data.idPlainte = new Date().getTime();
-          data.submitedBy = nom;
-          data.statut = Refresh;
-          data.dateSave = new Date(fullDateSave).toISOString().split("T")[0];
+      asyncLab.waterfall(
+        [
+          function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai("escalade", deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
+            const date = new Date();
+            const periode = moment(date).format("MM-YYYY");
+            let data = req.body;
+            data.periode = periode;
+            data.idPlainte = date.getTime();
+            data.submitedBy = nom;
+            data.time_delai = time_delai;
+            data.fullDateSave = date;
+            data.statut = Refresh;
+            data.dateSave = new Date().toISOString().split("T")[0];
 
-          modelPlainte
-            .create(data)
-            .then((result) => {
-              if (result) {
-                io.emit("plainte", result);
-
-                return res.status(200).json(result);
-              } else {
-                return res.status(201).json("Error");
-              }
-            })
-            .catch(function (err) {
-              return res.status(201).json("Error " + err);
-            });
-        },
-      ]);
+            modelPlainte
+              .create(data)
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            io.emit("plainte", result);
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Error");
+          }
+        }
+      );
     } catch (error) {
       console.log(error);
     }

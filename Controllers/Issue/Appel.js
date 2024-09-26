@@ -3,6 +3,8 @@ const asyncLab = require("async");
 const modelMessage = require("../../Models/Issue/Message");
 const modelParametre = require("../../Models/Parametre");
 const moment = require("moment");
+const modelDelai = require("../../Models/Issue/Delai");
+const { return_time_Delai } = require("../../Static/Static_Function");
 
 module.exports = {
   Appel: (req, res) => {
@@ -21,9 +23,7 @@ module.exports = {
         plainteSelect,
         recommandation,
         nomClient,
-        time_delai,
         statut,
-        property,
         priorite,
       } = req.body;
       if (
@@ -37,6 +37,7 @@ module.exports = {
       ) {
         return res.status(201).json("Veuillez renseigner les champs vides");
       }
+      const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       if (plainteSelect === "autre" && !recommandation) {
         return res
           .status(201)
@@ -46,6 +47,18 @@ module.exports = {
       asyncLab.waterfall(
         [
           function (done) {
+            modelDelai
+              .find({})
+              .lean()
+              .then((deedline) => {
+                const tab = return_time_Delai(statut, deedline);
+                done(null, tab);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (time_delai, done) {
             const periodes = moment(new Date()).format("MM-YYYY");
             modelAppel
               .create({
@@ -126,7 +139,6 @@ module.exports = {
               recommandation: 1,
               typePlainte: 1,
               nomClient: 1,
-              priorite: 1,
             },
           },
         ])
@@ -257,19 +269,49 @@ module.exports = {
     try {
       const io = req.io;
       const { id, data } = req.body;
-      modelAppel
-        .findByIdAndUpdate(id, { $set: data }, { new: true })
-        .then((result) => {
+      asyncLab.waterfall(
+        [
+          function (done) {
+            if (data.statut) {
+              modelDelai
+                .find({})
+                .lean()
+                .then((deedline) => {
+                  const tab = return_time_Delai(
+                    data.operation === "backoffice" ? "escalade" : data.statut,
+                    deedline
+                  );
+                  done(null, tab);
+                })
+                .catch(function (err) {
+                  console.log(err);
+                });
+            } else {
+              done(null, 0);
+            }
+          },
+          function (time_delai, done) {
+            data.time_delai = time_delai;
+            data.fullDateSave = new Date();
+            modelAppel
+              .findByIdAndUpdate(id, { $set: data }, { new: true })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+        ],
+        function (result) {
           if (result) {
             io.emit("plainte", result);
             return res.status(200).json(result);
           } else {
             return res.status(201).json("Error");
           }
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -281,12 +323,12 @@ module.exports = {
       const { nom } = request.user;
       const { idPlainte, content } = request.body;
       if (!idPlainte || !content) {
-        return;
+        return res.status(201).json("Veuillez renseigner les champs");
       }
       asyncLab.waterfall([
         function (done) {
           modelAppel
-            .find({ idPlainte })
+            .findOne({ idPlainte })
             .lean()
             .then((plainte) => {
               if (plainte) {
@@ -305,7 +347,8 @@ module.exports = {
               agent: nom,
             })
             .then((result) => {
-              const user = users.filter((x) => x.nom === plainte.openBy);
+              const user = users.filter((x) => x.nom === plainte.submitedBy);
+
               if (user.length > 0) {
                 io.to(user[0]?.socketId).emit("message", result);
                 return response.status(200).json(result);
@@ -318,6 +361,34 @@ module.exports = {
             });
         },
       ]);
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  ReadMy_Notification: (req, res) => {
+    try {
+      const { nom } = req.user;
+
+      modelAppel
+        .aggregate([
+          { $match: { submitedBy: nom, open: true } },
+          {
+            $lookup: {
+              from: "messages",
+              localField: "idPlainte",
+              foreignField: "idPlainte",
+              as: "messages",
+            },
+          },
+          { $unwind: "$messages" },
+          { $project: { messages: 1 } },
+        ])
+        .then((result) => {
+          return res.status(200).json(result);
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
     } catch (error) {
       console.log(error);
     }
@@ -378,10 +449,10 @@ module.exports = {
                 [
                   function (callback) {
                     modelAppel
-                      .find({ codeclient, type: "appel" })
+                      .find({ codeclient })
                       .limit(6)
                       .then((result) => {
-                        callback(null, result);
+                        callback(null, result.reverse());
                       })
                       .catch(function (err) {
                         console.log(err);
@@ -392,16 +463,6 @@ module.exports = {
               );
             },
             //ses tickets
-            tickets: function (callback) {
-              modelAppel
-                .find({ codeclient, type: "ticket" })
-                .then((result) => {
-                  callback(null, result);
-                })
-                .catch(function (err) {
-                  console.log(err);
-                });
-            },
           },
           function (err, results) {
             if (err) {

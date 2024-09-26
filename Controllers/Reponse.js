@@ -1,12 +1,11 @@
 const asyncLab = require("async");
 const ModelDemande = require("../Models/Demande");
 const _ = require("lodash");
-const ModelPeriode = require("../Models/Periode");
 const dayjs = require("dayjs");
 const Reclamation = require("../Models/Reclamation");
 const modelRapport = require("../Models/Rapport");
 const modelAppel = require("../Models/Issue/Appel_Issue");
-const { returnTime } = require("../Static/Static_Function");
+const moment = require("moment");
 
 module.exports = {
   reponse: (req, res, next) => {
@@ -22,6 +21,7 @@ module.exports = {
         nomClient,
         idZone,
         codeAgent,
+        createdAt,
         idShop,
         fonctionAgent,
         codeAgentDemandeur,
@@ -39,34 +39,21 @@ module.exports = {
         !PayementStatut ||
         !consExpDays ||
         !nomClient ||
-        !idZone
+        !idZone ||
+        !createdAt
       ) {
         return res.status(400).json("Veuillez renseigner les champs");
       }
       const dates = new Date().toISOString();
       const io = req.io;
+      const periode = moment(new Date()).format("MM-YYYY");
 
       asyncLab.waterfall(
         [
           function (done) {
-            //agent = co
-            ModelPeriode.findOne({})
-              .limit(1)
-              .then((response) => {
-                if (response) {
-                  done(null, response);
-                } else {
-                  done("Aucune période en cours");
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (periode, done) {
             modelRapport
               .find({
-                "demande.lot": periode.periode,
+                "demande.lot": periode,
                 codeclient: codeClient.trim(),
               })
               .lean()
@@ -75,11 +62,19 @@ module.exports = {
                   const doublon = result.filter(
                     (x) => x.demandeur.fonction === fonctionAgent
                   );
-
                   if (doublon.length > 0) {
-                    if (doublon[0].demandeur.codeAgent === codeAgentDemandeur) {
-                      const time = returnTime(doublon[0].updatedAt, new Date());
-                      done(null, periode, time);
+                    let doubleAgent = doublon.filter(
+                      (x) => x.demandeur.codeAgent === codeAgentDemandeur
+                    );
+                    if (doubleAgent.length > 0) {
+                      if (
+                        new Date(doubleAgent[0].demande.createdAt).getDate() ===
+                        new Date(createdAt).getDate()
+                      ) {
+                        done(null, "oneDay", doubleAgent);
+                      } else {
+                        done(null, "followup", doublon);
+                      }
                     } else {
                       let double = {
                         codeclient: doublon[0].codeclient,
@@ -93,19 +88,60 @@ module.exports = {
                         } code : ${doublon[0].demandeur.codeAgent}`,
                         _idDemande,
                       };
-                      io.emit("reponse", { idDemande });
+                      io.emit("chat", { idDemande });
                       req.recherche = double;
                       next();
                     }
                   } else {
-                    done(null, periode, 0);
+                    done(null, "demande", result);
                   }
                 } else {
-                  done(null, periode, 0);
+                  done(null, "demande", result);
                 }
               });
           },
-          function (periode, followup, done) {
+          function (type, doublon, done) {
+            if (type === "oneDay") {
+              let double = {
+                idDemande,
+                agentCo: codeAgent,
+                doublon: doublon[0].codeclient,
+              };
+
+              io.emit("chat", { idDemande });
+              req.recherche = double;
+              next();
+            }
+            if (type === "followup") {
+              const mydoucle = doublon.filter(
+                (x) => x.demandeur.codeAgent === codeAgentDemandeur
+              )[0];
+              ModelDemande.findOneAndUpdate(
+                { idDemande },
+                {
+                  $set: {
+                    typeVisit: {
+                      followup: "followup",
+                      dateFollowup: mydoucle?.createdAt,
+                      codeclient: mydoucle?.codeclient,
+                    },
+                    feedback: "chat",
+                  },
+                }
+              )
+                .then((result) => {
+                  io.emit("chat", { idDemande });
+                  return res.status(200).json(idDemande);
+                })
+                .catch(function (err) {
+                  console.log(err);
+                });
+            }
+            if (type === "demande") {
+              done(null, true);
+            }
+          },
+          function (followup, done) {
             ModelDemande.aggregate([
               { $match: { idDemande } },
               {
@@ -121,12 +157,12 @@ module.exports = {
               },
             ]).then((result) => {
               if (result.length > 0) {
-                done(null, result[0], followup);
+                done(null, result[0]);
               }
             });
           },
 
-          function (demande, followup, done) {
+          function (demande, done) {
             modelRapport
               .create({
                 idDemande: demande.idDemande,
@@ -135,11 +171,9 @@ module.exports = {
                 idZone,
                 codeCu,
                 clientStatut,
-                followup: followup > 0 ? true : false,
-                time_followup: followup,
                 PayementStatut,
                 consExpDays,
-                nomClient, // La periode
+                nomClient,
                 codeAgent: codeAgent,
                 dateSave: dates.split("T")[0],
                 adresschange,
@@ -272,24 +306,12 @@ module.exports = {
   //A demolir
   ReponseDemandeLot: (req, res) => {
     try {
+      const periode = moment(new Date()).format("MM-YYYY");
       asyncLab.waterfall(
         [
           function (done) {
-            ModelPeriode.findOne({})
-              .then((response) => {
-                if (response) {
-                  done(null, response);
-                } else {
-                  done([]);
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (periode, done) {
             ModelDemande.aggregate([
-              { $match: { lot: periode.periode } },
+              { $match: { lot: periode } },
               {
                 $lookup: {
                   from: "reponses",

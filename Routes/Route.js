@@ -39,7 +39,6 @@ const {
   updateClient,
   setFollow_up,
   Add_Valve,
-  Read_Valve,
 } = require("../Controllers/Parametre");
 
 const multer = require("multer");
@@ -172,7 +171,12 @@ const {
   Delete_communication,
   Communication,
   ReadCommuniquer,
+  ReadCommuniquerAgent,
+  DeleteCommuniquer,
+  UpdateCommuniquer,
 } = require("../Controllers/Communication");
+const { Update_Agent_Admin } = require("../Controllers/Admin/Conge/Setting");
+const { ReadCorbeille } = require("../Controllers/Corbeille");
 router.post("/ajuster", Ajuster);
 router.post("/raison", AddRaison);
 router.get("/raison", ReadRaison);
@@ -218,8 +222,13 @@ router.post("/periode", protect, setFollow_up);
 router.post("/valve", Add_Valve);
 router.get("/call_today", Call_ToDay);
 router.post("/refresh_payment", protect, Refresh_Payment);
-router.post("/communication", protect, upload.single("file"), Communication);
-router.delete("/communication", protect, Delete_communication);
+router.post("/communication", protect, Communication);
 router.get("/communication", protect, ReadCommuniquer);
+router.get("/communicationAgent", protectTech, ReadCommuniquerAgent);
+router.delete("/communication/:id", protect, DeleteCommuniquer);
+router.put("/communication", protect, UpdateCommuniquer);
+router.get("/get_corbeille", protect, ReadCorbeille);
+
+//-------------------------------------Conge-------------------------------------
 
 module.exports = router;

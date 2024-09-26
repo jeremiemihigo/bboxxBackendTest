@@ -1,14 +1,16 @@
-const modelDepartement = require('../../../Models/Admin/Departement')
-const asyncLab = require('async')
-const { generateNumber } = require('../../../Static/Static_Function')
-const { ObjectId } = require('mongodb')
+const modelDepartement = require("../../../Models/Admin/Departement");
+const asyncLab = require("async");
+const { generateNumber } = require("../../../Static/Static_Function");
+const ModelFonction = require("../../../Models/Admin/Fonction");
+const { ObjectId } = require("mongodb");
+const _Empty_Field = "Please fill in the fields";
 
 module.exports = {
   AddDepartement: (req, res) => {
     try {
-      const { departement } = req.body
+      const { departement } = req.body;
       if (!departement) {
-        return res.status(404).json('Veuillez renseigner le département')
+        return res.status(404).json(_Empty_Field);
       }
       asyncLab.waterfall(
         [
@@ -19,11 +21,11 @@ module.exports = {
               })
               .then((departmt) => {
                 if (departmt) {
-                  return res.status(404).json('Ce departement existe deja')
+                  return res.status(404).json("Ce departement existe deja");
                 } else {
-                  done(null, true)
+                  done(null, true);
                 }
-              })
+              });
           },
           function (departmt, done) {
             modelDepartement
@@ -32,73 +34,117 @@ module.exports = {
                 codeDepartement: generateNumber(6),
               })
               .then((depar) => {
-                done(depar)
-              })
+                done(depar);
+              });
           },
         ],
         function (result) {
           if (result) {
-            return res.status(200).json(result)
+            return res.status(200).json(result);
           } else {
-            return res.status(404).json("Erreur d'enregistrement")
+            return res.status(404).json("Erreur d'enregistrement");
           }
-        },
-      )
+        }
+      );
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
-  },
-  AddFonction: (req, res, next) => {
-    try {
-      const { codeDepartement, fonction } = req.body
-      if (!fonction || !codeDepartement) {
-        return res.status(404).json('Veuillez renseigner la fonction')
-      }
-      modelDepartement
-        .findOneAndUpdate(
-          { codeDepartement },
-          {
-            $addToSet: {
-              fonction: {
-                fonction,
-                codeFonction: generateNumber(3),
-              },
-            },
-          },
-          {
-            new: true,
-          },
-        )
-        .then((result) => {
-          if (result) {
-            req.recherche = result._id
-            next()
-          } else {
-            return res.status(404).json("Erreur d'enregistrement")
-          }
-        })
-        .catch(function (er) {
-          return res.status(404).json(err)
-        })
-    } catch (error) {}
   },
   ReadDepartement: (req, res) => {
     try {
-      const recherche = req.recherche
-      let match = recherche ? { _id: new ObjectId(recherche) } : {}
+      const recherche = req.recherche;
+      let match = recherche ? { _id: new ObjectId(recherche) } : {};
       modelDepartement
-        .find(match)
+        .aggregate([
+          { $match: match },
+          {
+            $lookup: {
+              from: "fonctions",
+              localField: "codeDepartement",
+              foreignField: "codeDepartement",
+              as: "fonction",
+            },
+          },
+        ])
         .then((result) => {
           if (result.length > 0) {
-            let data = recherche ? result[0] : result
-            return res.status(200).json(data)
+            let data = recherche ? result[0] : result;
+            return res.status(200).json(data);
           }
         })
         .catch(function (err) {
-          return res.status(404).json('Erreur' + err)
-        })
+          return res.status(404).json("Erreur" + err);
+        });
     } catch (error) {
-      return res.status(404).json('Erreur' + error)
+      return res.status(404).json("Erreur" + error);
     }
   },
-}
+  AddFonction: (req, res) => {
+    try {
+      const { fonction, codeDepartement } = req.body;
+      const codeFonction = generateNumber(9);
+      if (!fonction || !codeDepartement) {
+        return res.status(201).json(_Empty_Field);
+      }
+      asyncLab.waterfall(
+        [
+          function (done) {
+            ModelFonction.findOne({ fonction })
+              .lean()
+              .then((result) => {
+                if (result) {
+                  return res.status(201).json("This function already exists");
+                } else {
+                  done(null, true);
+                }
+              })
+              .catch(function (err) {
+                return res.status(201).json("Error " + err);
+              });
+          },
+          function (resu, done) {
+            ModelFonction.create({ codeFonction, codeDepartement, fonction })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                return res.status(201).json("Erreur " + err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Erreur d'enregistrement");
+          }
+        }
+      );
+    } catch (error) {
+      return res.status(201).json("Erreur " + error);
+    }
+  },
+  ReadFonction: (req, res) => {
+    try {
+      ModelFonction.aggregate([
+        {
+          $lookup: {
+            from: "departements",
+            localField: "codeDepartement",
+            foreignField: "codeDepartement",
+            as: "departement",
+          },
+        },
+        { $unwind: "$departement" },
+      ])
+        .then((result) => {
+          return res.status(200).json(result);
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+    } catch (error) {
+      console.log(error);
+    }
+  },
+};
