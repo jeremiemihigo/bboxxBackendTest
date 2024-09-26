@@ -1,7 +1,7 @@
 const modelDemande = require("../Models/Demande");
 const _ = require("lodash");
 const asyncLab = require("async");
-const modelPeriode = require("../Models/Periode");
+const moment = require("moment");
 const Report = require("../Models/Rapport");
 
 module.exports = {
@@ -27,28 +27,15 @@ module.exports = {
   readPeriodeGroup: (req, res) => {
     try {
       const { codeAgent } = req.user;
+      const periode = moment(new Date()).format("MM-YYYY");
       asyncLab.waterfall([
         function (done) {
-          modelPeriode
-            .findOne({})
-            .lean()
-            .then((periode) => {
-              if (periode) {
-                done(null, periode);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-
-        function (periode, done) {
           modelDemande
             .aggregate([
               {
                 $match: {
                   codeAgent,
-                  lot: periode.periode,
+                  lot: periode,
                 },
               },
               {
@@ -69,18 +56,26 @@ module.exports = {
               },
             ])
             .then((response) => {
-              done(null, periode, response.reverse());
+              done(null, response.reverse());
             });
         },
-        function (periode, reponse, done) {
+        function (reponse, done) {
           let table = [];
           table.push({
-            _id: periode.periode,
+            _id: periode,
             attente: reponse.filter(
               (x) => x.reponse.length < 1 && x.feedback === "new"
             ),
             nConforme: reponse.filter(
-              (x) => x.reponse.length < 1 && x.feedback === "chat"
+              (x) =>
+                x.reponse.length === 0 &&
+                x.feedback === "chat" &&
+                x?.typeVisit?.followup === "visit"
+            ),
+            followup: reponse.filter(
+              (x) =>
+                (x.reponse.length > 0 && x.reponse[0].followup === true) ||
+                x?.typeVisit?.followup === "followup"
             ),
             valide: reponse.filter((x) => x.reponse.length > 0),
             allData: reponse,
@@ -148,16 +143,4 @@ module.exports = {
       console.log(error);
     }
   },
-  // searchPaquet : (req, res)=>{
-  //   try {
-  //     modelDemande
-  //     .aggregate([{ $group: { _id: '$lot' } }]).then(response=>{
-  //       if(response.length >0){
-  //         return res.status(200).json(response)
-  //       }
-  //     }).catch(function(err){console.log(err)})
-  //   } catch (error) {
-
-  //   }
-  // }
 };

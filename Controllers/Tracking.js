@@ -2,6 +2,7 @@ const modelRapport = require("../Models/Rapport");
 const asyncLab = require("async");
 const modelPeriode = require("../Models/Periode");
 const _ = require("lodash");
+const moment = require("moment");
 
 module.exports = {
   Visited: (req, res) => {
@@ -10,29 +11,14 @@ module.exports = {
       if (!client && client.length < 1) {
         return res.status(201).json("Aucun client envoyer");
       }
+      const periode = moment(new Date()).format("MM-YYYY");
       asyncLab.waterfall(
         [
           function (done) {
-            modelPeriode
-              .findOne({})
-              .lean()
-              .then((periode) => {
-                if (periode) {
-                  done(null, periode);
-                } else {
-                  // return res.status(201).json("Aucune periode trouvee");
-                  return res.status(201).json([]);
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (periode, done) {
             modelRapport
               .find({
                 codeclient: { $in: client },
-                "demande.lot": periode.periode,
+                "demande.lot": periode,
               })
               .lean()
               .then((result) => {

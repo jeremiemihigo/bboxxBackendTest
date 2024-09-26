@@ -33,8 +33,6 @@ const schema = new mongoose.Schema(
       value: String,
     },
     demandeur: { nom: String, codeAgent: String, fonction: String },
-    followup: { type: Boolean, required: true, default: true },
-    time_followup: { type: Number, required: true },
     demande: {
       typeImage: String,
       createdAt: Date,

@@ -1,8 +1,8 @@
 const asyncLab = require("async");
 const modelReclamation = require("../Models/Reclamation");
-const modelPeriode = require("../Models/Periode");
 const modelDemande = require("../Models/Demande");
 const { ObjectId } = require("mongodb");
+const moment = require("moment");
 
 module.exports = {
   Reclamation: (req, res) => {
@@ -90,28 +90,15 @@ module.exports = {
   },
   demandeIncorrect: (req, res) => {
     try {
+      const periode = moment(new Date()).format("MM-YYYY");
       asyncLab.waterfall(
         [
           function (done) {
-            modelPeriode
-              .findOne({})
-              .then((response) => {
-                if (response) {
-                  done(null, response);
-                } else {
-                  return res.status(201).json("Erreur");
-                }
-              })
-              .catch(function (err) {
-                return res.status(201).json("Erreur " + err);
-              });
-          },
-          function (periode, done) {
             modelDemande
               .aggregate([
                 {
                   $match: {
-                    lot: periode.periode,
+                    lot: periode,
                     valide: false,
                     feedback: "chat",
                   },

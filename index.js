@@ -98,26 +98,16 @@ app.use("/issue", require("./Routes/Issue"));
 app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
 app.use("/bboxx/file", express.static(path.resolve(__dirname, "Fichiers")));
 
-const modelZone = require("./Models/Zone");
-app.get("/test", (req, res) => {
+const fs = require("fs");
+app.post("/deleteImage", (req, res) => {
   try {
-    modelZone
-      .aggregate([
-        {
-          $lookup: {
-            from: "shops",
-            localField: "idZone",
-            foreignField: "idZone",
-            as: "shop",
-          },
-        },
-      ])
-      .then((response) => {
-        return res.status(200).json(response.reverse());
-      })
-      .catch(function (err) {
+    const { demandes } = req.body;
+    for (let i = 0; i < demandes.length; i++) {
+      const pathdelete = `./Images/${demandes[i].file}`;
+      fs.unlink(pathdelete, (err) => {
         console.log(err);
       });
+    }
   } catch (error) {
     console.log(error);
   }

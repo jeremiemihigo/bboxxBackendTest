@@ -29,6 +29,7 @@ module.exports = {
         plainteShop,
         plainte_callcenter,
         fonction,
+        nom,
       } = req.user;
       const dates = new Date().toISOString().split("T")[0];
       const periode = moment(new Date()).format("MM-YYYY");
@@ -54,16 +55,35 @@ module.exports = {
                   },
                   { open: true },
                 ],
+                periode: periode,
               };
               done(null, match);
             }
-            if (synchro_shop && synchro_shop.length > 0 && fonction === "co") {
+            if (
+              synchro_shop &&
+              synchro_shop.length > 0 &&
+              !backOffice_plainte &&
+              fonction === "co"
+            ) {
               let match = {
                 type: "ticket",
-                open: true,
                 periode: periode,
                 shop: { $in: synchro_shop },
               };
+              done(null, match);
+            }
+            if (synchro_shop && synchro_shop.length > 0 && backOffice_plainte) {
+              let match = {
+                $or: [
+                  {
+                    type: "ticket",
+                    periode: periode,
+                    shop: { $in: synchro_shop },
+                  },
+                  { open: true, type: "support" },
+                ],
+              };
+
               done(null, match);
             }
             if (plainteShop && fonction === "admin") {
@@ -74,6 +94,7 @@ module.exports = {
                   },
                   { open: true },
                 ],
+                periode: periode,
                 shop: plainteShop,
               };
               done(null, match);
@@ -87,9 +108,12 @@ module.exports = {
                 $or: [
                   {
                     dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
+                    submitedBy: nom,
                   },
-                  { open: true },
+                  { open: true, submitedBy: nom },
+                  { statut: "awaiting_confirmation", open: true },
                 ],
+                periode: periode,
               };
               done(null, match);
             }

@@ -44,6 +44,16 @@ const schema = new mongoose.Schema(
     sat: { type: String, required: true },
     lot: { type: String, required: true },
     jours: { type: Number, required: false },
+    typeVisit: {
+      followup: {
+        type: String,
+        required: true,
+        default: "visit",
+        enum: ["visit", "followup"],
+      },
+      dateFollowup: { type: Date, required: false },
+      codeclient: { type: String, required: false },
+    },
     feedback: {
       type: String,
       required: true,

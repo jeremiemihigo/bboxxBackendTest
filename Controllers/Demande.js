@@ -1,5 +1,4 @@
 const modelDemande = require("../Models/Demande");
-const ModelPeriode = require("../Models/Periode");
 const modelAgentAdmin = require("../Models/Agent");
 const asyncLab = require("async");
 const { generateNumber } = require("../Static/Static_Function");
@@ -8,6 +7,8 @@ const modelRapport = require("../Models/Rapport");
 const fs = require("fs");
 const sharp = require("sharp");
 const _ = require("lodash");
+const moment = require("moment");
+const ModelCorbeille = require("../Models/Corbeille");
 
 module.exports = {
   demande: (req, res) => {
@@ -54,7 +55,7 @@ module.exports = {
           .status(201)
           .json("Veuillez renseigner la raison de non payement");
       }
-
+      const periode = moment(new Date()).format("MM-YYYY");
       const io = req.io;
       asyncLab.waterfall(
         [
@@ -89,23 +90,8 @@ module.exports = {
                 return res.status(201).json("Erreur");
               });
           },
+
           function (agent, done) {
-            ModelPeriode.findOne({})
-              .lean()
-
-              .then((response) => {
-                if (response) {
-                  done(null, agent, response);
-                } else {
-                  return res.status(201).json("Aucune période en cours");
-                }
-              })
-              .catch(function (err) {
-                return res.status(201).json("Erreur");
-              });
-          },
-
-          function (agent, periode, done) {
             modelDemande
               .create({
                 codeAgent: agent.codeAgent,
@@ -115,7 +101,7 @@ module.exports = {
                 statut,
                 raison: raison === "undefined" ? "" : raison,
                 codeclient,
-                lot: periode.periode,
+                lot: periode,
                 idDemande,
                 jours,
                 sector,
@@ -264,26 +250,13 @@ module.exports = {
     }
   },
   ToutesDemande: (req, res) => {
+    const periode = moment(new Date()).format("MM-YYYY");
     try {
       asyncLab.waterfall([
         function (done) {
-          ModelPeriode.findOne({})
-            .lean()
-            .then((periode) => {
-              if (periode) {
-                done(null, periode);
-              } else {
-                return res.status(200).json([]);
-              }
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (periode, done) {
           modelRapport
             .aggregate([
-              { $match: { "demande.lot": periode.periode } },
+              { $match: { "demande.lot": periode } },
               {
                 $group: {
                   _id: "$agentSave.nom",
@@ -345,64 +318,88 @@ module.exports = {
         $match: data,
       };
       const finDate = new Date(fin);
-
       finDate.setDate(finDate.getDate() + 1);
+      const { nom } = req.user;
 
-      modelDemande
-        .aggregate([
-          match,
-          {
-            $match: {
-              createdAt: {
-                $gte: new Date(debut),
-                $lte: finDate,
-              },
-            },
+      asyncLab.waterfall(
+        [
+          function (done) {
+            ModelCorbeille.create({
+              name: nom,
+              date: new Date().toISOString().split("T")[0],
+              texte: `Statistique allant du ${debut} au ${fin}`,
+            })
+              .then((corbeille) => {
+                done(null, corbeille);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
           },
-          {
-            $lookup: {
-              from: "rapports",
-              localField: "idDemande",
-              foreignField: "idDemande",
-              as: "reponse",
-            },
+          function (corbeille, done) {
+            modelDemande
+              .aggregate([
+                match,
+                {
+                  $match: {
+                    createdAt: {
+                      $gte: new Date(debut),
+                      $lte: finDate,
+                    },
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "rapports",
+                    localField: "idDemande",
+                    foreignField: "idDemande",
+                    as: "reponse",
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "conversations",
+                    localField: "_id",
+                    foreignField: "code",
+                    as: "conversation",
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "agents",
+                    localField: "codeAgent",
+                    foreignField: "codeAgent",
+                    as: "agent",
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "zones",
+                    localField: "codeZone",
+                    foreignField: "idZone",
+                    as: "zone",
+                  },
+                },
+                {
+                  $unwind: "$agent",
+                },
+                {
+                  $unwind: "$zone",
+                },
+              ])
+              .then((response) => {
+                done(response);
+              });
           },
-          {
-            $lookup: {
-              from: "conversations",
-              localField: "_id",
-              foreignField: "code",
-              as: "conversation",
-            },
-          },
-          {
-            $lookup: {
-              from: "agents",
-              localField: "codeAgent",
-              foreignField: "codeAgent",
-              as: "agent",
-            },
-          },
-          {
-            $lookup: {
-              from: "zones",
-              localField: "codeZone",
-              foreignField: "idZone",
-              as: "zone",
-            },
-          },
-          {
-            $unwind: "$agent",
-          },
-          {
-            $unwind: "$zone",
-          },
-        ])
-        .then((response) => {
+        ],
+        function (response) {
           if (response) {
             return res.status(200).json(response.reverse());
+          } else {
+            return;
           }
-        });
+        }
+      );
     } catch (error) {
       console.log(error);
     }
@@ -455,29 +452,16 @@ module.exports = {
   },
   ToutesDemandeAttente: (req, res) => {
     try {
+      const periode = moment(new Date()).format("MM-YYYY");
       asyncLab.waterfall(
         [
           function (done) {
-            ModelPeriode.findOne({})
-              .lean()
-              .then((periode) => {
-                if (periode) {
-                  done(null, periode);
-                } else {
-                  return res.status(200).json([]);
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (periode, done) {
             modelDemande
               .aggregate([
                 {
                   $match: {
                     valide: false,
-                    lot: periode.periode,
+                    lot: periode,
                     feedback: "new",
                   },
                 },
@@ -545,7 +529,7 @@ module.exports = {
       console.log(error);
     }
   },
-  updateDemandeAgent: (req, res, next) => {
+  updateDemandeAgent: (req, res) => {
     try {
       const {
         codeclient,
@@ -562,23 +546,20 @@ module.exports = {
         sat,
         id, //placeholder = SAT
       } = req.body;
-      console.log(req.body);
       asyncLab.waterfall(
         [
           function (done) {
             modelDemande
-              .findOne({ _id: new ObjectId(id) })
+              .findById(id)
               .then((demande) => {
-                console.log({ demande });
                 if (demande) {
                   done(null, demande);
                 } else {
-                  return res.status(201).json("Erreur 1");
+                  return res.status(201).json("Visite introuvable");
                 }
               })
               .catch(function (err) {
-                console.log(err);
-                return res.status(201).json("Erreur 2");
+                return res.status(201).json("Erreur : " + err);
               });
           },
           function (demande, done) {

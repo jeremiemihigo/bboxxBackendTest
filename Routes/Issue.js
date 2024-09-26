@@ -15,6 +15,7 @@ const {
   UpdateAppel,
   Message,
   InfoClient,
+  ReadMy_Notification,
 } = require("../Controllers/Issue/Appel");
 const {
   updatedAdresse,
@@ -35,6 +36,7 @@ const {
   Apres_Assistance,
   Verification,
   Ticket_CallCenter,
+  Edit_complaint,
 } = require("../Controllers/Issue/Ticket/Creation");
 const {
   ReadTech,
@@ -58,9 +60,8 @@ router.get("/plainte", ReadPlainte);
 router.get("/today", protect, AppelToday);
 
 router.post("/changeadresse", protect, updatedAdresse);
-router.post("/issuerapport", protect, IssueRapport);
 
-router.put("/updateappel", protect, UpdateAppel);
+router.post("/updateappel", protect, UpdateAppel);
 
 router.post("/message", protect, Message);
 //Ticket
@@ -92,6 +93,7 @@ router.get("/itemPlainte", protect, ReadItem_Plainte);
 
 //Support
 const multer = require("multer");
+const { AddInformation } = require("../Controllers/Issue/Information");
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "Fichiers/");
@@ -123,4 +125,9 @@ router.post("/info_client", protect, Info_Client);
 
 router.post("/addplainte_support", protect, AddPlainteSupport);
 router.get("/onecomplaint/:id", protect, ReadOneComplaint);
+
+router.post("/information_customer", protect, AddInformation);
+router.get("/notification_reader", protect, ReadMy_Notification);
+
+router.put("/edit_complet", protect, Edit_complaint);
 module.exports = router;

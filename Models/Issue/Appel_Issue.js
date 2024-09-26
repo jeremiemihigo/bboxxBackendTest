@@ -4,10 +4,10 @@ const result = new mongoose.Schema({
   nomAgent: { type: String, required: true },
   fullDate: { type: Date, required: true },
   dateSave: { type: Date, required: true },
-  laststatus: { type: String, required: true },
+  laststatus: { type: String, required: false },
   changeto: { type: String, required: true },
   commentaire: { type: String, required: false },
-  delai: { type: String, required: true, enum: ["OUT SLA", "IN SLA"] },
+  delai: { type: String, required: false, enum: ["OUT SLA", "IN SLA"] },
 });
 const downgrade = new mongoose.Schema({
   kit: { type: String, required: true },
@@ -40,7 +40,7 @@ const schema = new mongoose.Schema(
     submitedBy: { type: String, required: true },
     codeclient: {
       type: String,
-      required: false,
+      required: true,
       trim: false,
       max: 12,
       min: 12,
@@ -48,24 +48,26 @@ const schema = new mongoose.Schema(
     },
     open: { type: Boolean, required: true, default: true },
     operation: { type: String, required: false, enum: ["backoffice"] },
-    nomClient: { type: String, required: false },
+    nomClient: { type: String, required: true },
     time_delai: { type: Number, required: true, default: 0 },
     contact: { type: String, required: true },
     periode: { type: String, required: true },
-    priorite: { type: String, required: false },
-    typePlainte: { type: String, required: false },
-    plainteSelect: { type: String, required: false },
+    typePlainte: { type: String, required: true },
+    plainteSelect: { type: String, required: true },
     dateSave: { type: Date, required: true },
     fullDateSave: { type: Date, required: true },
     recommandation: { type: String, required: false },
-    property: { type: String, required: false },
+    property: { type: String, required: true },
     decodeur: { type: String, required: false },
     raisonOngoing: { type: String, required: false },
+    editRaison: { type: String, required: false },
+    editBy: { type: String, required: false },
+    delai: { type: String, required: false, enum: ["IN SLA", "OUT SLA"] },
     dateClose: { type: Date, required: false },
     type: {
       type: String,
       required: true,
-      enum: ["appel", "ticket", "support"],
+      enum: ["appel", "ticket", "Education", "support"],
     },
     //Tickets
     resultat: { type: [result], required: false },
@@ -102,9 +104,10 @@ const schema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    delai: { type: String, enum: ["IN SLA", "OUT SLA"], required: false },
+
     idPlainte: { type: String, required: true, unique: true, uppercase: true },
     shop: { type: String, required: true },
+    closeBy: { type: String, required: false },
     ticket: {
       createdBy: String,
       numSynchro: String,
@@ -114,5 +117,9 @@ const schema = new mongoose.Schema(
 );
 
 schema.index({ periode: 1 });
+schema.index({ operation: -1 });
+schema.index({ codeclient: -1 });
+schema.index({ dateSave: -1 });
+schema.index({ property: 1 });
 const model = mongoose.model("Appel", schema);
 module.exports = model;

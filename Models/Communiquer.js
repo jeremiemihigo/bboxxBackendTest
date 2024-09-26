@@ -6,6 +6,8 @@ const schema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     filename: { type: String, required: false },
     savedBy: { type: String, required: true },
+    concerne: { type: String, required: true },
+    date: { type: Date, required: true },
   },
   { timestamps: true }
 );

@@ -16,6 +16,12 @@ const schema = new mongoose.Schema(
     fonction: { type: String, required: true },
     plainteShop: { type: String, required: false },
     synchro_shop: { type: Array, required: false },
+
+    //Conge
+    id_session: { type: String, required: false, unique: true },
+    my_supervisor: { type: String, required: false },
+    all_days: { type: Number, required: false },
+    id_fonction: { type: String, required: false },
   },
   { timestamps: true }
 );

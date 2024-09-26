@@ -1,7 +1,5 @@
 const ModelAgentAdmin = require("../Models/AgentAdmin");
-const ModelAgentCorbeille = require("../Models/Corbeille/Corbeille");
 const asyncLab = require("async");
-const bcrypt = require("bcrypt");
 
 module.exports = {
   //Corbeille done
@@ -97,23 +95,10 @@ module.exports = {
             )
               .then((response) => {
                 if (response) {
-                  done(null, response);
+                  done(response);
                 } else {
                   return res.status(201).json("Erreur");
                 }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (response, done) {
-            ModelAgentCorbeille.create({
-              codeAgent: response._id,
-              doBy: codeAgent,
-              operation: "bloquer",
-            })
-              .then((response) => {
-                done(response);
               })
               .catch(function (err) {
                 console.log(err);
