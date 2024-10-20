@@ -3,12 +3,11 @@ const modelDoublon = require("../Models/Doublon");
 const modelConversation = require("../Models/Reclamation");
 const asyncLab = require("async");
 const modelDemande = require("../Models/Demande");
-const modelPeriode = require("../Models/Periode");
+const moment = require("moment");
 
 module.exports = {
   Doublon: (req, res) => {
     try {
-      console.log(req.recherche);
       if (!req.recherche.present) {
         const { idDemande, agentCo, doublon } = req.recherche;
         modelDemande
@@ -80,8 +79,13 @@ module.exports = {
   },
   ReadDoublon: (req, res) => {
     try {
+      const mois = moment(new Date()).format("MM-YYYY");
+      let match = {
+        $match: { "typeVisit.followup": "followup", valide: false, lot: mois },
+      };
       modelDoublon
         .aggregate([
+          match,
           {
             $lookup: {
               from: "demandes",
@@ -195,36 +199,23 @@ module.exports = {
       asyncLab.waterfall(
         [
           function (done) {
-            modelPeriode
-              .findOne({})
-              .lean()
-              .then((result) => {
-                if (result) {
-                  done(null, result);
-                } else {
-                  return res.status(201).json("Aucune période active");
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-          function (periode, done) {
+            const periode = moment(new Date()).format("MM-YYYY");
             let match = dataTosearch
               ? {
                   $match: {
-                    lot: periode.periode,
+                    lot: periode,
                     valide: false,
-                    feedback: "chat",
                     double: { $exists: false },
+                    "typeVisit.followup": "visit",
+                    feedback: "chat",
                     [dataTosearch.key]: dataTosearch.value,
                   },
                 }
               : {
                   $match: {
-                    lot: periode.periode,
+                    lot: periode,
                     valide: false,
-                    feedback: "chat",
+                    "typeVisit.followup": "visit",
                     double: { $exists: 0 },
                   },
                 };

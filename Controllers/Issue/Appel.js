@@ -4,7 +4,11 @@ const modelMessage = require("../../Models/Issue/Message");
 const modelParametre = require("../../Models/Parametre");
 const moment = require("moment");
 const modelDelai = require("../../Models/Issue/Delai");
-const { return_time_Delai } = require("../../Static/Static_Function");
+const {
+  return_time_Delai,
+  generateString,
+} = require("../../Static/Static_Function");
+const mongoose = require("mongoose");
 
 module.exports = {
   Appel: (req, res) => {
@@ -149,122 +153,6 @@ module.exports = {
       console.log(error);
     }
   },
-  // ThisMonth: (req, res) => {
-  //   try {
-  //     asyncLab.waterfall(
-  //       [
-  //         function (done) {
-  //           modelPeriode
-  //             .findOne({}, { periode: 1 })
-  //             .lean()
-  //             .then((periode) => {
-  //               if (periode) {
-  //                 done(null, periode);
-  //               }
-  //             })
-  //             .catch(function (err) {
-  //               console.log(err);
-  //             });
-  //         },
-  //         function (periode, done) {
-  //           modelAppel
-  //             .aggregate([
-  //               {
-  //                 $match: {
-  //                   periode: periode.periode,
-  //                   statut: { $not: { $in: ["resolved", "closed"] } },
-  //                 },
-  //               },
-  //               {
-  //                 $lookup: {
-  //                   from: "messages",
-  //                   localField: "idPlainte",
-  //                   foreignField: "idPlainte",
-  //                   as: "message",
-  //                 },
-  //               },
-  //               {
-  //                 $project: {
-  //                   openBy: 1,
-  //                   codeclient: 1,
-  //                   dateSave: 1,
-  //                   message: 1,
-  //                   contact: 1,
-  //                   fullDateSave: 1,
-  //                   statut: 1,
-  //                   idPlainte: 1,
-  //                   dateClose: 1,
-  //                   time_delai: 1,
-  //                   delai: 1,
-  //                   plainteSelect: 1,
-  //                   recommandation: 1,
-  //                   typePlainte: 1,
-  //                   nomClient: 1,
-  //                   priorite: 1,
-  //                 },
-  //               },
-  //             ])
-  //             .then((result) => {
-  //               done(result);
-  //             })
-  //             .catch(function (err) {
-  //               console.log(err);
-  //             });
-  //         },
-  //       ],
-  //       function (result) {
-  //         return res.status(200).json(result.reverse());
-  //       }
-  //     );
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // },
-  // BackOffice: (req, res) => {
-  //   try {
-  //     const { statut } = req.params;
-  //     modelAppel
-  //       .aggregate([
-  //         { $match: { statut } },
-  //         {
-  //           $lookup: {
-  //             from: "messages",
-  //             localField: "idPlainte",
-  //             foreignField: "idPlainte",
-  //             as: "message",
-  //           },
-  //         },
-  //         {
-  //           $project: {
-  //             openBy: 1,
-  //             codeclient: 1,
-  //             message: 1,
-  //             dateSave: 1,
-  //             fullDateSave: 1,
-  //             statut: 1,
-  //             idPlainte: 1,
-  //             dateClose: 1,
-  //             time_delai: 1,
-  //             delai: 1,
-  //             plainteSelect: 1,
-  //             recommandation: 1,
-  //             typePlainte: 1,
-  //             nomClient: 1,
-  //             priorite: 1,
-  //           },
-  //         },
-  //       ])
-  //       .then((result) => {
-  //         console.log(result);
-  //         return res.status(200).json(result.reverse());
-  //       })
-  //       .catch(function (err) {
-  //         console.log(err);
-  //       });
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // },
   UpdateAppel: (req, res) => {
     try {
       const io = req.io;
@@ -293,8 +181,13 @@ module.exports = {
           function (time_delai, done) {
             data.time_delai = time_delai;
             data.fullDateSave = new Date();
+
             modelAppel
-              .findByIdAndUpdate(id, { $set: data }, { new: true })
+              .findOneAndUpdate(
+                { _id: new mongoose.Types.ObjectId(id), open: true },
+                { $set: data },
+                { new: true }
+              )
               .then((result) => {
                 done(result);
               })
@@ -308,7 +201,7 @@ module.exports = {
             io.emit("plainte", result);
             return res.status(200).json(result);
           } else {
-            return res.status(201).json("Error");
+            return res.status(201).json("La plainte n'est plus ouverte");
           }
         }
       );
@@ -316,15 +209,15 @@ module.exports = {
       console.log(error);
     }
   },
-  Message: (request, response) => {
+  Message: (request, response, next) => {
     try {
-      const io = request.io;
-      const users = request.users;
       const { nom } = request.user;
-      const { idPlainte, content } = request.body;
+      const { idPlainte, content, lastMessage, lastAgent } = request.body;
+
       if (!idPlainte || !content) {
-        return res.status(201).json("Veuillez renseigner les champs");
+        return response.status(201).json("Veuillez renseigner les champs");
       }
+      const date = new Date().toISOString();
       asyncLab.waterfall([
         function (done) {
           modelAppel
@@ -345,13 +238,16 @@ module.exports = {
               content,
               idPlainte,
               agent: nom,
+              lastMessage,
+              dateSave: date.split("T")[0],
+              codeclient: plainte.codeclient,
+              lastAgent,
+              idMessage: `${idPlainte}-${generateString(10)}`,
             })
             .then((result) => {
-              const user = users.filter((x) => x.nom === plainte.submitedBy);
-
-              if (user.length > 0) {
-                io.to(user[0]?.socketId).emit("message", result);
-                return response.status(200).json(result);
+              if (result) {
+                request.recherche = result.idMessage;
+                next();
               } else {
                 return response.status(200).json(result);
               }
@@ -367,24 +263,52 @@ module.exports = {
   },
   ReadMy_Notification: (req, res) => {
     try {
+      const io = req.io;
+      const users = req.users;
       const { nom } = req.user;
 
-      modelAppel
+      const dates = new Date().toISOString().split("T")[0];
+      const match1 = req.recherche
+        ? { idMessage: req.recherche }
+        : {
+            $or: [
+              {
+                dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
+              },
+            ],
+          };
+      modelMessage
         .aggregate([
-          { $match: { submitedBy: nom, open: true } },
+          { $match: match1 },
           {
             $lookup: {
-              from: "messages",
+              from: "appels",
               localField: "idPlainte",
               foreignField: "idPlainte",
-              as: "messages",
+              as: "plainte",
             },
           },
-          { $unwind: "$messages" },
-          { $project: { messages: 1 } },
+          { $unwind: "$plainte" },
+          { $match: { "plainte.open": true } },
         ])
         .then((result) => {
-          return res.status(200).json(result);
+          if (req.recherche) {
+            const user = users.filter(
+              (x) => x.nom === result[0].plainte?.submitedBy && x.nom !== nom
+            );
+            let backoffice = users.filter((x) => x.backoffice === true);
+            for (let i = 0; i < backoffice.length; i++) {
+              io.to(backoffice[0]?.socketId).emit("message", result[0]);
+            }
+            if (user.length > 0) {
+              io.to(user[0]?.socketId).emit("message", result[0]);
+              return res.status(200).json(result[0]);
+            } else {
+              return res.status(200).json(result[0]);
+            }
+          } else {
+            return res.status(200).json(result);
+          }
         })
         .catch(function (err) {
           console.log(err);

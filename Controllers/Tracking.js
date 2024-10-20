@@ -1,6 +1,5 @@
 const modelRapport = require("../Models/Rapport");
 const asyncLab = require("async");
-const modelPeriode = require("../Models/Periode");
 const _ = require("lodash");
 const moment = require("moment");
 

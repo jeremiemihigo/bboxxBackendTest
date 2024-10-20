@@ -64,5 +64,6 @@ schema.post("save", function (doc, next) {
     .then((response) => {})
     .catch(function (err) {});
 });
+
 const model = mongoose.model("Rapport", schema);
 module.exports = model;

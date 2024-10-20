@@ -59,7 +59,7 @@ module.exports = {
   },
   ReturnDelai_Issue: (fullDateSave, minutes) => {
     let resultat =
-      (new Date(fullDateSave).getTime() - new Date().getTime()) / 60000;
+      (new Date().getTime() - new Date(fullDateSave).getTime()) / 60000;
     if (resultat > minutes) {
       return "OUT SLA";
     } else {

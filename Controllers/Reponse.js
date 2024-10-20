@@ -17,19 +17,20 @@ module.exports = {
         codeCu,
         clientStatut,
         PayementStatut,
+        nomDemandeur,
         consExpDays,
         nomClient,
         idZone,
         codeAgent,
         createdAt,
+        demande,
+        coordonnee,
         idShop,
         fonctionAgent,
         codeAgentDemandeur,
         _idDemande,
         nomAgentSave,
       } = req.body;
-
-      // const {} = req.user
       if (
         !idDemande ||
         !codeAgent ||
@@ -40,6 +41,8 @@ module.exports = {
         !consExpDays ||
         !nomClient ||
         !idZone ||
+        !demande ||
+        !nomDemandeur ||
         !createdAt
       ) {
         return res.status(400).json("Veuillez renseigner les champs");
@@ -52,51 +55,54 @@ module.exports = {
         [
           function (done) {
             modelRapport
-              .find({
-                "demande.lot": periode,
-                codeclient: codeClient.trim(),
-              })
+              .findOne(
+                {
+                  "demande.lot": periode.toString(),
+                  codeclient: codeClient.trim(),
+                  "demandeur.fonction": fonctionAgent,
+                },
+                {
+                  demandeur: 1,
+                  codeclient: 1,
+                  idDemande: 1,
+                  "demande.createdAt": 1,
+                  createdAt: 1,
+                }
+              )
               .lean()
-              .then((result) => {
-                if (result.length > 0) {
-                  const doublon = result.filter(
-                    (x) => x.demandeur.fonction === fonctionAgent
-                  );
-                  if (doublon.length > 0) {
-                    let doubleAgent = doublon.filter(
-                      (x) => x.demandeur.codeAgent === codeAgentDemandeur
-                    );
-                    if (doubleAgent.length > 0) {
-                      if (
-                        new Date(doubleAgent[0].demande.createdAt).getDate() ===
-                        new Date(createdAt).getDate()
-                      ) {
-                        done(null, "oneDay", doubleAgent);
-                      } else {
-                        done(null, "followup", doublon);
-                      }
+              .then((doublon) => {
+                if (doublon) {
+                  let doubleAgent =
+                    doublon.demandeur.codeAgent === codeAgentDemandeur;
+
+                  if (doubleAgent) {
+                    if (
+                      new Date(doublon.demande.createdAt).getDate() ===
+                      new Date(createdAt).getDate()
+                    ) {
+                      done(null, "oneDay", doublon);
                     } else {
-                      let double = {
-                        codeclient: doublon[0].codeclient,
-                        precedent: doublon[0].idDemande,
-                        present: idDemande,
-                        agentCo: codeAgent,
-                        message: `visite effectuée le ${dayjs(
-                          doublon[0]?.demande.createdAt
-                        ).format("DD/MM/YYYY")} par ${
-                          doublon[0].demandeur.nom
-                        } code : ${doublon[0].demandeur.codeAgent}`,
-                        _idDemande,
-                      };
-                      io.emit("chat", { idDemande });
-                      req.recherche = double;
-                      next();
+                      done(null, "followup", doublon);
                     }
                   } else {
-                    done(null, "demande", result);
+                    let double = {
+                      codeclient: doublon.codeclient,
+                      precedent: doublon.idDemande,
+                      present: idDemande,
+                      agentCo: codeAgent,
+                      message: `visite effectuée le ${dayjs(
+                        doublon.demande.createdAt
+                      ).format("DD/MM/YYYY")} par ${
+                        doublon.demandeur.nom
+                      } code : ${doublon.demandeur.codeAgent}`,
+                      _idDemande,
+                    };
+                    io.emit("chat", { idDemande });
+                    req.recherche = double;
+                    next();
                   }
                 } else {
-                  done(null, "demande", result);
+                  done(null, "demande", doublon);
                 }
               });
           },
@@ -105,25 +111,21 @@ module.exports = {
               let double = {
                 idDemande,
                 agentCo: codeAgent,
-                doublon: doublon[0].codeclient,
+                doublon: doublon.codeclient,
               };
-
               io.emit("chat", { idDemande });
               req.recherche = double;
               next();
             }
             if (type === "followup") {
-              const mydoucle = doublon.filter(
-                (x) => x.demandeur.codeAgent === codeAgentDemandeur
-              )[0];
               ModelDemande.findOneAndUpdate(
                 { idDemande },
                 {
                   $set: {
                     typeVisit: {
                       followup: "followup",
-                      dateFollowup: mydoucle?.createdAt,
-                      codeclient: mydoucle?.codeclient,
+                      dateFollowup: doublon?.createdAt,
+                      codeclient: doublon?.codeclient,
                     },
                     feedback: "chat",
                   },
@@ -141,31 +143,11 @@ module.exports = {
               done(null, true);
             }
           },
-          function (followup, done) {
-            ModelDemande.aggregate([
-              { $match: { idDemande } },
-              {
-                $lookup: {
-                  from: "agents",
-                  localField: "codeAgent",
-                  foreignField: "codeAgent",
-                  as: "agent",
-                },
-              },
-              {
-                $unwind: "$agent",
-              },
-            ]).then((result) => {
-              if (result.length > 0) {
-                done(null, result[0]);
-              }
-            });
-          },
 
-          function (demande, done) {
+          function (demandes, done) {
             modelRapport
               .create({
-                idDemande: demande.idDemande,
+                idDemande,
                 codeclient: codeClient,
                 idShop,
                 idZone,
@@ -179,61 +161,41 @@ module.exports = {
                 adresschange,
                 agentSave: { nom: nomAgentSave },
                 demandeur: {
-                  nom: demande.agent.nom,
-                  codeAgent: demande.agent.codeAgent,
-                  fonction: demande.agent.fonction,
+                  nom: nomDemandeur,
+                  codeAgent: codeAgentDemandeur,
+                  fonction: fonctionAgent,
                 },
-                coordonnee: {
-                  longitude: demande.coordonnes.longitude,
-                  latitude: demande.coordonnes.latitude,
-                  altitude: demande.coordonnes.altitude,
-                },
-
-                demande: {
-                  typeImage: demande.typeImage,
-                  createdAt: demande.createdAt,
-                  numero: demande.numero,
-                  commune: demande.commune,
-                  updatedAt: demande.updatedAt,
-                  createdAt: demande.createdAt,
-                  statut: demande.statut,
-                  sector: demande.sector,
-                  jours: demande?.jours,
-                  lot: demande.lot,
-                  cell: demande.cell,
-                  file: demande.file,
-                  reference: demande.reference,
-                  sat: demande.sat,
-                  raison: demande.raison,
-                },
+                coordonnee,
+                demande,
               })
               .then((response) => {
                 if (response) {
-                  done(null, demande, response);
+                  done(null, response);
                 } else {
                   done("Erreur d'enregistrement");
                 }
               })
               .catch(function (err) {
+                console.log(err);
                 done("Erreur " + err);
               });
           },
-          function (demande, response, done) {
+          function (response, done) {
             try {
-              Reclamation.deleteMany({ code: demande._id })
+              Reclamation.deleteMany({ code: _idDemande })
                 .then((deleted) => {
-                  done(demande, response);
+                  done(response);
                 })
                 .catch(function (err) {});
             } catch (error) {}
           },
         ],
-        function (result, response) {
-          if (result.idDemande) {
+        function (response) {
+          if (response.codeclient) {
             io.emit("reponse", response);
-            return res.status(200).json(result.idDemande);
+            return res.status(200).json(idDemande);
           } else {
-            return res.status(400).json(result);
+            return res.status(400).json("Error");
           }
         }
       );
@@ -293,13 +255,13 @@ module.exports = {
   updateReponse: (req, res) => {
     try {
       const { idReponse, data } = req.body;
-
       modelRapport
         .findByIdAndUpdate(idReponse, data, { new: true })
         .then((response) => {
-          return res
-            .status(200)
-            .json("Modification effectuée id " + response._id);
+          return res.status(200).json(response);
+        })
+        .catch(function (err) {
+          return res.status(201).json(err);
         });
     } catch (error) {}
   },
@@ -343,6 +305,72 @@ module.exports = {
             }
           } catch (error) {
             console.log(error);
+          }
+        }
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  SupprimerReponse: (req, res) => {
+    try {
+      const { id, message } = req.body;
+      const periode = moment(new Date()).format("MM-YYYY");
+      asyncLab.waterfall(
+        [
+          function (done) {
+            ModelDemande.findOneAndUpdate(
+              { idDemande: id, lot: periode },
+              { $set: { valide: false, feedback: "chat" } },
+              { new: true }
+            )
+              .then((demande) => {
+                if (demande) {
+                  done(null, demande);
+                } else {
+                  return res
+                    .status(201)
+                    .json("Cette demande n'est pas de ce mois en cours");
+                }
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (demande, done) {
+            Reclamation.create({
+              sender: "co",
+              code: demande._id,
+              message,
+              codeAgent: req.user.codeAgent,
+            })
+              .then((message) => {
+                if (message) {
+                  done(null, demande);
+                } else {
+                  return res.status(201).json("Error");
+                }
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+          function (demande, done) {
+            modelRapport
+              .findOneAndDelete({ idDemande: demande.idDemande })
+              .then((result) => {
+                done(result);
+              })
+              .catch(function (err) {
+                console.log(err);
+              });
+          },
+        ],
+        function (result) {
+          if (result) {
+            return res.status(200).json(result);
+          } else {
+            return res.status(201).json("Reponse introuvable");
           }
         }
       );
