@@ -34,14 +34,13 @@ module.exports = {
         !codeclient ||
         !nomClient ||
         !shop ||
-        !commentaire ||
         !contact
       ) {
         return res.status(201).json("Veuillez renseigner les champs");
       }
       const date = new Date();
 
-      const idPlainte = `${shop.substr(0, 2)}${generateNumber(5)}`;
+      const idPlainte = `${shop.substr(0, 2)}${generateNumber(6)}`;
       const property = req.user.plainte_callcenter ? "callcenter" : "shop";
 
       asyncLab.waterfall(
@@ -246,14 +245,13 @@ module.exports = {
                       assignBy: nom,
                       codeTech: codeAgent,
                       date: new Date(),
-                      numSynchro,
+                      numSynchro: numSynchro.trim(),
                     },
                   },
                 },
                 { new: true }
               )
               .then((ticket) => {
-                console.log(ticket);
                 done(ticket);
               })
               .catch(function (err) {
@@ -364,7 +362,6 @@ module.exports = {
       const { nom } = req.user;
       const io = req.io;
       const { num_ticket, statut, open, commentaire } = req.body;
-
       const dateSave = new Date();
       if (!statut || !num_ticket) {
         return res.status(201).json("Veuillez renseigner les champs");
@@ -402,21 +399,10 @@ module.exports = {
               });
           },
           function (ticket, time_delai, deedline, done) {
-            console.log(ticket, time_delai, deedline);
             modelAppel_Ticket
               .findByIdAndUpdate(
                 ticket._id,
                 {
-                  $set: {
-                    statut,
-                    time_delai,
-                    fullDateSave: dateSave,
-                    open,
-                    delai: ReturnDelai_Issue(
-                      ticket.fullDateSave,
-                      return_time_Delai(ticket.statut, deedline)
-                    ),
-                  },
                   $push: {
                     verification: {
                       nomAgent: nom,
@@ -434,6 +420,16 @@ module.exports = {
                         return_time_Delai(ticket.statut, deedline)
                       ),
                     },
+                  },
+                  $set: {
+                    statut,
+                    time_delai,
+                    fullDateSave: dateSave,
+                    open,
+                    delai: ReturnDelai_Issue(
+                      ticket.fullDateSave,
+                      return_time_Delai(ticket.statut, deedline)
+                    ),
                   },
                 },
                 { new: true }
@@ -491,7 +487,7 @@ module.exports = {
       const date = new Date();
       const property = req.user.plainte_callcenter ? "callcenter" : "shop";
 
-      const idPlainte = `${shop.substr(0, 2)}${generateNumber(5)}`;
+      const idPlainte = `${shop.substr(0, 2)}${generateNumber(6)}`;
 
       asyncLab.waterfall(
         [

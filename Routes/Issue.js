@@ -43,6 +43,8 @@ const {
   Readclient,
   ReadMy_Backoffice,
   ReadOneComplaint,
+  ReadData_Backoffice,
+  Mydeedline,
 } = require("../Controllers/Issue/Ticket/Read");
 const {
   Delai,
@@ -63,7 +65,7 @@ router.post("/changeadresse", protect, updatedAdresse);
 
 router.post("/updateappel", protect, UpdateAppel);
 
-router.post("/message", protect, Message);
+router.post("/message", protect, Message, ReadMy_Notification);
 //Ticket
 router.post("/soumission_ticket", protect, Soumission_Ticket);
 router.post("/create_ticket", protect, CreationTicket);
@@ -101,7 +103,7 @@ var storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const image = file.originalname.split(".");
 
-    cb(null, `${Date.now()}.${image[1]}`);
+    cb(null, `${Date.now()}.pdf`);
   },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -130,4 +132,6 @@ router.post("/information_customer", protect, AddInformation);
 router.get("/notification_reader", protect, ReadMy_Notification);
 
 router.put("/edit_complet", protect, Edit_complaint);
+router.get("/backoffice_data", ReadData_Backoffice);
+router.get("/mydeedline/:type", protect, Mydeedline);
 module.exports = router;

@@ -3,6 +3,7 @@ const modelParametre = require("../Models/Parametre");
 const modelPeriode = require("../Models/Periode");
 const asyncLab = require("async");
 const modelValve = require("../Models/Valve");
+const moment = require("moment");
 
 module.exports = {
   Parametre: (req, res) => {
@@ -65,32 +66,11 @@ module.exports = {
       console.log(error);
     }
   },
-  PeriodeDemande: (req, res, next) => {
-    next();
-    if (new Date().getDate() >= 4 && new Date().getDate() <= 3) {
-      const toDay = new Date();
-      const periode = `${
-        toDay.getMonth() + 1 < 10
-          ? "0" + (toDay.getMonth() + 1)
-          : toDay.getMonth() + 1
-      }-${toDay.getFullYear()}`;
-      modelPeriode.updateOne({ $set: { periode } }).then((result) => {});
-    }
-  },
+
   ReadPeriodeActive: (req, res) => {
     try {
-      modelPeriode
-        .findOne({})
-        .then((response) => {
-          if (response) {
-            return res.status(200).json(response);
-          } else {
-            return res.status(200).json([]);
-          }
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
+      let periode = moment(new Date()).format("MM-YYYY");
+      return res.status(200).json(periode);
     } catch (error) {
       console.log(error);
     }
@@ -111,47 +91,59 @@ module.exports = {
   rechercheClient: (req, res) => {
     try {
       const { codeclient } = req.params;
-      if (codeclient !== "") {
-        modelParametre
-          .aggregate([
-            { $match: { customer: codeclient.toUpperCase() } },
-            {
-              $lookup: {
-                from: "zones",
-                localField: "region",
-                foreignField: "idZone",
-                as: "region",
-              },
+      modelParametre
+        .aggregate([
+          {
+            $match: { customer: codeclient.toUpperCase().trim() },
+          },
+          {
+            $lookup: {
+              from: "zones",
+              localField: "region",
+              foreignField: "idZone",
+              as: "region",
             },
-            {
-              $unwind: "$region",
+          },
+          {
+            $unwind: "$region",
+          },
+          {
+            $lookup: {
+              from: "shops",
+              localField: "shop",
+              foreignField: "idShop",
+              as: "shop",
             },
-            {
-              $lookup: {
-                from: "shops",
-                localField: "shop",
-                foreignField: "idShop",
-                as: "shop",
-              },
-            },
-            {
-              $unwind: "$shop",
-            },
-          ])
-          .then((response) => {
-            if (response.length > 0) {
-              return res.status(200).json(response[0]);
-            } else {
-              return res.status(201).json([]);
-            }
-          })
-          .catch(function (err) {
-            console.log(err);
-          });
-      } else {
-        return res.status(201).json([]);
-      }
-    } catch (error) {}
+          },
+          {
+            $unwind: "$shop",
+          },
+          // {
+          //   $lookup: {
+          //     from: "rapports",
+          //     localField: "customer",
+          //     foreignField: "codeclient",
+          //     as: "infoclient",
+          //   },
+          // },
+        ])
+
+        .then((result) => {
+          if (result.length > 0) {
+            //let visites = result[0].infoclient.reverse().slice(0, 4);
+            return res.status(200).json({ info: result[0], visites: [] });
+          } else {
+            return res.status(201).json({ info: {}, visites: [] });
+          }
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+
+      // Executer le parallel
+    } catch (error) {
+      console.log(error);
+    }
   },
   updateClient: (req, res, next) => {
     try {

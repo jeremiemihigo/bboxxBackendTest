@@ -47,12 +47,14 @@ const {
   OneReponse,
   updateReponse,
   ReponseDemandeLot,
+  SupprimerReponse,
 } = require("../Controllers/Reponse");
 const {
   Rapport,
   ContactClient,
   Call_ToDay,
   Refresh_Payment,
+  RapportFollowUp,
 } = require("../Controllers/Rapport");
 const {
   Reclamation,
@@ -73,7 +75,7 @@ var storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const image = file.originalname.split(".");
 
-    cb(null, `${Date.now()}.${image[1]}`);
+    cb(null, `${Date.now()}.png`);
   },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -102,7 +104,7 @@ router.get("/parametreRead", ReadParametre);
 router.put("/parametre", updateClient, ReadParametre);
 router.get("/customer/:codeclient", rechercheClient);
 router.get("/touteDemande", ToutesDemande);
-router.get("/toutesDemandeAttente", protect, ToutesDemandeAttente);
+router.get("/toutesDemandeAttente/:limit", protect, ToutesDemandeAttente);
 //Rapport visite ménage
 router.post("/rapport", protect, Rapport);
 router.get("/oneReponse/:id", OneReponse);
@@ -115,7 +117,7 @@ router.post("/reponsedemande", protectReponse, reponse, Doublon);
 router.post("/reclamation", Reclamation);
 //Update
 router.put("/zone", AffecterZone);
-router.put("/reponse", updateReponse);
+router.put("/reponse", protect, updateReponse);
 router.put("/bloquer", BloquerAgent, ReadAgent);
 router.put("/reset", resetPassword, ReadAgent);
 router.put("/resetAdmin", protect, resetPasswordAdmin);
@@ -168,14 +170,12 @@ const {
   set_backOffice,
 } = require("../Controllers/Permission");
 const {
-  Delete_communication,
   Communication,
   ReadCommuniquer,
   ReadCommuniquerAgent,
   DeleteCommuniquer,
   UpdateCommuniquer,
 } = require("../Controllers/Communication");
-const { Update_Agent_Admin } = require("../Controllers/Admin/Conge/Setting");
 const { ReadCorbeille } = require("../Controllers/Corbeille");
 router.post("/ajuster", Ajuster);
 router.post("/raison", AddRaison);
@@ -205,6 +205,7 @@ router.post("/action", AddAction);
 router.get("/demandeIncorrect", protect, demandeIncorrect);
 router.get("/doublon", ReadDoublon);
 router.post("/conformite", NonConformes);
+router.get("/followup", RapportFollowUp);
 //================================================================Departement et permission================================================================================================
 
 router.put("/addTache", AddTache);
@@ -228,6 +229,7 @@ router.get("/communicationAgent", protectTech, ReadCommuniquerAgent);
 router.delete("/communication/:id", protect, DeleteCommuniquer);
 router.put("/communication", protect, UpdateCommuniquer);
 router.get("/get_corbeille", protect, ReadCorbeille);
+router.post("/deletedemande", protect, SupprimerReponse);
 
 //-------------------------------------Conge-------------------------------------
 

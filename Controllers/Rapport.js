@@ -3,33 +3,20 @@ const modelAppel = require("../Models/Issue/Appel_Issue");
 const asyncLab = require("async");
 const { differenceDays } = require("../Static/Static_Function");
 const modelCorbeille = require("../Models/Corbeille");
+const modelDemande = require("../Models/Demande");
+const moment = require("moment");
 
 module.exports = {
   Rapport: (req, res) => {
     try {
-      const { debut, fin, dataTosearch, followUp } = req.body;
+      const { debut, fin, dataTosearch } = req.body;
 
       if (!debut || !fin) {
         return res
           .status(200)
           .json({ error: true, message: "Veuillez renseigner les dates" });
       }
-      let match_followup = dataTosearch
-        ? {
-            dateSave: {
-              $gte: new Date(debut),
-              $lte: new Date(fin),
-            },
-            [dataTosearch.key]: dataTosearch.value,
-            followup: followUp,
-          }
-        : {
-            dateSave: {
-              $gte: new Date(debut),
-              $lte: new Date(fin),
-            },
-            followup: followUp,
-          };
+
       let match_not_followup = dataTosearch
         ? {
             dateSave: {
@@ -44,7 +31,6 @@ module.exports = {
               $lte: new Date(fin),
             },
           };
-      let match = followUp ? match_followup : match_not_followup;
 
       const project = {
         codeclient: 1,
@@ -100,7 +86,7 @@ module.exports = {
         },
         function (corbei, done) {
           modelRapport
-            .find(match, project)
+            .find(match_not_followup, project)
             .lean()
             .then((response) => {
               return res.status(200).json(response);
@@ -113,6 +99,32 @@ module.exports = {
     } catch (error) {
       console.log(error);
     }
+  },
+  RapportFollowUp: (req, res) => {
+    try {
+      const mois = moment(new Date()).format("MM-YYYY");
+      const { dataTosearch } = req.body;
+      let match_not_followup = dataTosearch
+        ? {
+            lot: mois,
+            "typeVisit.followup": "followup",
+            [dataTosearch.key]: dataTosearch.value,
+          }
+        : {
+            lot: mois,
+            "typeVisit.followup": "followup",
+          };
+
+      modelDemande
+        .find(match_not_followup)
+        .lean()
+        .then((result) => {
+          return res.status(200).json(result);
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+    } catch (error) {}
   },
   ContactClient: (req, res) => {
     try {

@@ -36,13 +36,19 @@ module.exports = {
       asyncLab.waterfall(
         [
           function (done) {
-            if (backOffice_plainte && fonction === "co") {
+            if (
+              backOffice_plainte &&
+              fonction === "co" &&
+              (!synchro_shop || synchro_shop.length === 0)
+            ) {
               let match = {
                 $or: [
                   {
                     dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
+                    periode: periode,
                   },
-                  { open: true },
+                  { open: true, operation: "backoffice" },
+                  { open: true, statut: "awaiting_confirmation" },
                 ],
               };
               done(null, match);
@@ -52,10 +58,11 @@ module.exports = {
                 $or: [
                   {
                     dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
+                    periode: periode,
                   },
-                  { open: true },
+                  { open: true, periode: periode },
+                  { operation: "backoffice", open: true },
                 ],
-                periode: periode,
               };
               done(null, match);
             }
@@ -66,9 +73,13 @@ module.exports = {
               fonction === "co"
             ) {
               let match = {
-                type: "ticket",
-                periode: periode,
-                shop: { $in: synchro_shop },
+                $or: [
+                  {
+                    type: "ticket",
+                    periode: periode,
+                    shop: { $in: synchro_shop },
+                  },
+                ],
               };
               done(null, match);
             }
@@ -80,22 +91,37 @@ module.exports = {
                     periode: periode,
                     shop: { $in: synchro_shop },
                   },
-                  { open: true, type: "support" },
+                  { open: true, type: "support", periode: periode },
+                  { open: true, operation: "backoffice" },
                 ],
               };
-
               done(null, match);
             }
-            if (plainteShop && fonction === "admin") {
+            if (plainteShop && fonction === "admin" && !backOffice_plainte) {
               let match = {
                 $or: [
                   {
                     dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
+                    periode: periode,
+                    shop: plainteShop,
                   },
-                  { open: true },
+                  { open: true, operation: "backoffice", shop: plainteShop },
+                  { open: true, shop: plainteShop, periode: periode },
                 ],
-                periode: periode,
-                shop: plainteShop,
+              };
+              done(null, match);
+            }
+            if (plainteShop && fonction === "admin" && backOffice_plainte) {
+              let match = {
+                $or: [
+                  {
+                    dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
+                    periode: periode,
+                    shop: plainteShop,
+                  },
+                  { open: true, operation: "backoffice" },
+                  { open: true, shop: plainteShop, periode: periode },
+                ],
               };
               done(null, match);
             }
@@ -109,11 +135,15 @@ module.exports = {
                   {
                     dateSave: { $lte: new Date(dates), $gte: new Date(dates) },
                     submitedBy: nom,
+                    periode: periode,
                   },
-                  { open: true, submitedBy: nom },
-                  { statut: "awaiting_confirmation", open: true },
+                  { open: true, submitedBy: nom, periode: periode },
+                  {
+                    statut: "awaiting_confirmation",
+                    open: true,
+                  },
+                  { open: true, operation: "backoffice" },
                 ],
-                periode: periode,
               };
               done(null, match);
             }
@@ -167,6 +197,14 @@ module.exports = {
               operation: "backoffice",
             },
           },
+          {
+            $lookup: {
+              from: "messages",
+              localField: "idPlainte",
+              foreignField: "idPlainte",
+              as: "message",
+            },
+          },
         ])
         .then((result) => {
           return res.status(200).json(result);
@@ -206,6 +244,81 @@ module.exports = {
         .catch(function (err) {
           console.log(err);
         });
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  ReadData_Backoffice: (req, res) => {
+    try {
+      const now = moment(new Date()).format("MM-YYYY");
+      modelPlainte
+        .aggregate([
+          {
+            $match: {
+              periode: now,
+              operation: "backoffice",
+              open: false,
+            },
+          },
+          { $group: { _id: "$delai", total: { $sum: 1 } } },
+        ])
+        .then((result) => {
+          return res.status(200).json(result);
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  Mydeedline: (req, res) => {
+    try {
+      const { type } = req.params;
+      const { nom } = req.user;
+      const periode = moment(new Date()).format("MM-YYYY");
+      const back =
+        type !== "backoffice"
+          ? {
+              $match: {
+                "resultat.nomAgent": nom,
+              },
+            }
+          : {
+              $match: {
+                closeBy: nom,
+              },
+            };
+      asyncLab.waterfall([
+        function (done) {
+          modelPlainte
+            .aggregate([
+              { $match: { periode: periode, open: false } },
+              { $unwind: "$resultat" },
+              back,
+              {
+                $project: {
+                  "resultat.delai": 1,
+                  delai: 1,
+                },
+              },
+            ])
+            .then((result) => {
+              if (result.length > 0) {
+                let insla = result.filter(
+                  (x) => x.resultat.delai === "IN SLA" || x.delai === "IN SLA"
+                );
+                let pourcentage = (insla.length * 100) / result.length;
+                return res.status(200).json(pourcentage.toFixed(0));
+              } else {
+                return res.status(200).json(100);
+              }
+            })
+            .catch(function (err) {
+              console.log(err);
+            });
+        },
+      ]);
     } catch (error) {
       console.log(error);
     }

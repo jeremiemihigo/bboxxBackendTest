@@ -34,10 +34,7 @@ module.exports = {
       const { filename } = req.file;
       let annee = new Date().getFullYear().toString();
 
-      const idDemande = `${annee.substr(
-        2,
-        3
-      )}${new Date().getMonth()}${generateNumber(8)}`;
+      const idDemande = new Date().getTime();
       if (
         !codeAgent ||
         !codeZone ||
@@ -68,22 +65,6 @@ module.exports = {
                   done(null, agentFound);
                 } else {
                   return res.status(201).json("Agent introuvable");
-                }
-              })
-              .catch(function (err) {
-                return res.status(201).json("Erreur");
-              });
-          },
-
-          function (agent, done) {
-            modelDemande
-              .findOne({ idDemande })
-              .lean()
-              .then((response) => {
-                if (response) {
-                  return res.status(201).json("Veuillez relancer la demande");
-                } else {
-                  done(null, agent);
                 }
               })
               .catch(function (err) {
@@ -144,62 +125,12 @@ module.exports = {
                 fs.unlink(pathdelete, (err) => {
                   console.log(err);
                 });
-                done(null, demande);
+                done(demande);
               })
               .catch(function (err) {
                 console.log(err);
               });
           },
-          function (demande, done) {
-            modelDemande
-              .aggregate([
-                { $match: { _id: new ObjectId(demande._id) } },
-                {
-                  $lookup: {
-                    from: "agents",
-                    localField: "codeAgent",
-                    foreignField: "codeAgent",
-                    as: "agent",
-                  },
-                },
-
-                {
-                  $lookup: {
-                    from: "zones",
-                    localField: "codeZone",
-                    foreignField: "idZone",
-                    as: "zone",
-                  },
-                },
-                {
-                  $lookup: {
-                    from: "reponses",
-                    localField: "idDemande",
-                    foreignField: "idDemande",
-                    as: "reponse",
-                  },
-                },
-                { $unwind: "$agent" },
-                { $unwind: "$zone" },
-                {
-                  $lookup: {
-                    from: "shops",
-                    localField: "agent.idShop",
-                    foreignField: "idShop",
-                    as: "shopAgent",
-                  },
-                },
-              ])
-              .then((result) => {
-                if (result) {
-                  done(result[0]);
-                }
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
-
           //delete Image
         ],
         function (demande) {
@@ -452,6 +383,7 @@ module.exports = {
   },
   ToutesDemandeAttente: (req, res) => {
     try {
+      const { limit } = req.params;
       const periode = moment(new Date()).format("MM-YYYY");
       asyncLab.waterfall(
         [
@@ -467,47 +399,13 @@ module.exports = {
                 },
                 {
                   $lookup: {
-                    from: "agents",
-                    localField: "codeAgent",
-                    foreignField: "codeAgent",
-                    as: "agent",
-                  },
-                },
-
-                {
-                  $lookup: {
-                    from: "zones",
-                    localField: "codeZone",
-                    foreignField: "idZone",
-                    as: "zone",
-                  },
-                },
-                {
-                  $lookup: {
-                    from: "reponses",
-                    localField: "idDemande",
-                    foreignField: "idDemande",
-                    as: "reponse",
-                  },
-                },
-                { $unwind: "$agent" },
-                { $unwind: "$zone" },
-                {
-                  $lookup: {
-                    from: "shops",
-                    localField: "agent.idShop",
-                    foreignField: "idShop",
-                    as: "shopAgent",
-                  },
-                },
-                {
-                  $lookup: {
                     from: "conversations",
                     localField: "_id",
                     foreignField: "code",
                     as: "conversation",
                   },
                 },
+                { $limit: parseInt(limit) },
               ])
               .then((response) => {
                 if (response) {
