@@ -1,16 +1,10 @@
 RewriteEngine On
-
-# First check if domain starts with www. and add it
-# then if not using SSL force it
 RewriteCond %{HTTP_HOST} !^$
 RewriteCond %{HTTP_HOST} !^www\. [NC]
 RewriteCond %{HTTPS}s ^on(s)|
 RewriteRule ^ http%1://www.%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=302,L,NE]
-
-# Redirect all trafic to NODE.JS server. 
-# It must be running and, in this case, listening to port 60000
 RewriteRule ^$ http://127.0.0.1:40000/ [P,L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

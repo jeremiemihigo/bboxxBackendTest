@@ -32,7 +32,6 @@ module.exports = {
         sat, //placeholder = SAT
       } = req.body;
       const { filename } = req.file;
-      let annee = new Date().getFullYear().toString();
 
       const idDemande = new Date().getTime();
       if (

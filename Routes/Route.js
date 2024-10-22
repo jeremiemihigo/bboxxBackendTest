@@ -70,11 +70,9 @@ const {
 
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "ImagesController/");
+    cb(null, "Images/");
   },
   filename: (req, file, cb) => {
-    const image = file.originalname.split(".");
-
     cb(null, `${Date.now()}.png`);
   },
   fileFilter: (req, file, cb) => {

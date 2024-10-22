@@ -97,69 +97,11 @@ app.use("/servey", require("./Routes/servey"));
 app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
 app.use("/bboxx/file", express.static(path.resolve(__dirname, "Fichiers")));
 
-const fs = require("fs");
-app.post("/deleteImage", (req, res) => {
-  try {
-    const { demandes } = req.body;
-    for (let i = 0; i < demandes.length; i++) {
-      const pathdelete = `./Images/${demandes[i].file}`;
-      fs.unlink(pathdelete, (err) => {
-        console.log(err);
-      });
-    }
-  } catch (error) {
-    console.log(error);
-  }
+app.get("/lien", (req, res) => {
+  return res.status(200).json("Bonjour jeremie");
 });
 //Start server
-const port = process.env.PORT || 40002;
+const port = process.env.PORT || 40000;
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-
-// const modelRapport = require("./Models/Rapport");
-// const AsyncLab = require("async");
-
-// app.post("/arranger", (req, res) => {
-//   try {
-//     AsyncLab.waterfall([
-//       function (done) {
-//         modelRapport
-//           .aggregate([
-//             { $match: { "demandeur.codeAgent": "b.nadine" } },
-//             {
-//               $lookup: {
-//                 from: "agents",
-//                 localField: "demandeur.nom",
-//                 foreignField: "nom",
-//                 as: "agent",
-//               },
-//             },
-//             { $unwind: "$agent" },
-//           ])
-//           .then((result) => {
-//             done(null, result);
-//           });
-//       },
-//       function (result, done) {
-//         for (let i = 0; i < result.length; i++) {
-//           modelRapport
-//             .findByIdAndUpdate(result[i]._id, {
-//               $set: {
-//                 "demandeur.codeAgent": result[i].agent.codeAgent,
-//                 updatedAt: result[i].updatedAt,
-//               },
-//             })
-//             .then((response) => {
-//               console.log(response);
-//             });
-//           console.log(i);
-//         }
-//       },
-//     ]);
-//   } catch (error) {
-//     console.log(error);
-//   }
-// });
-
-// // Socket.IO
