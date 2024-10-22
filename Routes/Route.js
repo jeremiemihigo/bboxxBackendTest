@@ -70,7 +70,7 @@ const {
 
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "../Images/");
+    cb(null, "Images/");
   },
   filename: (req, file, cb) => {
     cb(null, `image${Date.now()}.png`);
