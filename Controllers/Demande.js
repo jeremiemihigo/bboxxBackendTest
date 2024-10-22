@@ -98,7 +98,7 @@ module.exports = {
               })
               .then((demande) => {
                 if (demande) {
-                  done(null, demande);
+                  done(demande);
                 } else {
                   return res
                     .status(201)
@@ -114,23 +114,23 @@ module.exports = {
               });
           },
           //compress image
-          function (demande, done) {
-            const path = `ImagesController/${demande.file}`;
-            const pathdelete = `./ImagesController/${demande.file}`;
+          // function (demande, done) {
+          //   const path = `ImagesController/${demande.file}`;
+          //   const pathdelete = `./ImagesController/${demande.file}`;
 
-            sharp(path)
-              .png({ quality: 30 })
-              .toFile(`./Images/${demande.file}`)
-              .then((result) => {
-                fs.unlink(pathdelete, (err) => {
-                  console.log(err);
-                });
-                done(demande);
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
-          },
+          //   sharp(path)
+          //     .png({ quality: 30 })
+          //     .toFile(`./Images/${demande.file}`)
+          //     .then((result) => {
+          //       fs.unlink(pathdelete, (err) => {
+          //         console.log(err);
+          //       });
+          //       done(demande);
+          //     })
+          //     .catch(function (err) {
+          //       console.log(err);
+          //     });
+          // },
           //delete Image
         ],
         function (demande) {
