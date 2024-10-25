@@ -127,7 +127,7 @@ router.put("/userAdmin", UpdatePasswordAdmin);
 //Mobiles
 router.get("/demandeReponse/:id", ToutesDemandeAgent);
 router.get("/readDemande", DemandeAttente);
-router.post("/demande", upload.single("file"), demande);
+router.post("/demande", demande);
 
 router.post("/demandeAgentAll", protect, lectureDemandeBd);
 

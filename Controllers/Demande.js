@@ -30,8 +30,8 @@ module.exports = {
         cell, //placeholder = Cell/Ward
         reference, //placeholder = Reference
         sat, //placeholder = SAT
+        filename,
       } = req.body;
-      const { filename } = req.file;
 
       const idDemande = new Date().getTime();
       if (
@@ -428,21 +428,8 @@ module.exports = {
   },
   updateDemandeAgent: (req, res) => {
     try {
-      const {
-        codeclient,
-        commune,
-        numero,
-        latitude, // si la photo est prise dans l'appli ce champs est obligatoire sinon il n'est pas obligatoire
-        altitude, // si la photo est prise dans l'appli ce champs est obligatoire sinon il n'est pas obligatoire
-        longitude, // si la photo est prise dans l'appli ce champs est obligatoire sinon il n'est pas obligatoire
-        statut,
-        raison,
-        sector, //placeholder = Sector/constituency
-        cell, //placeholder = Cell/Ward
-        reference, //placeholder = Reference
-        sat,
-        id, //placeholder = SAT
-      } = req.body;
+      const { id, data } = req.body;
+      console.log(req.body);
       asyncLab.waterfall(
         [
           function (done) {
@@ -461,23 +448,7 @@ module.exports = {
           },
           function (demande, done) {
             modelDemande
-              .findByIdAndUpdate(
-                id,
-                {
-                  coordonnes: { latitude, altitude, longitude },
-                  statut,
-                  raison,
-                  codeclient,
-                  sector,
-                  cell,
-                  reference,
-                  feedback: "new",
-                  sat,
-                  commune,
-                  numero,
-                },
-                { new: true }
-              )
+              .findByIdAndUpdate(id, data, { new: true })
               .then((response) => {
                 done(response);
               })
