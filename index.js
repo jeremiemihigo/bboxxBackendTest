@@ -94,11 +94,11 @@ app.use((req, res, next) => {
 // Routes
 const Routes = require("./Routes/Route");
 app.use("/bboxx/support", Routes);
-// app.use("/admin/rh", require("./Routes/RessourceH"));
-// app.use("/issue", require("./Routes/Issue"));
-// app.use("/servey", require("./Routes/servey"));
-// app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
-// app.use("/bboxx/file", express.static(path.resolve(__dirname, "")));
+app.use("/admin/rh", require("./Routes/RessourceH"));
+app.use("/issue", require("./Routes/Issue"));
+app.use("/servey", require("./Routes/servey"));
+app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
+app.use("/bboxx/file", express.static(path.resolve(__dirname, "")));
 
 // Route de test
 app.get("/", (req, res) => {
