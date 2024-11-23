@@ -96,4 +96,52 @@ module.exports = {
       console.log(error);
     }
   },
+  returnMois: () => {
+    return "11-2024";
+  },
+  returnMoisLetter: (month) => {
+    let main;
+    switch (month) {
+      case "01":
+        main = "Jan";
+        break;
+      case "02":
+        main = "Feb";
+        break;
+      case "03":
+        main = "Mar";
+        break;
+      case "04":
+        main = "Apr";
+        break;
+      case "05":
+        main = "May";
+        break;
+      case "06":
+        main = "Jun";
+        break;
+      case "07":
+        main = "Jul";
+        break;
+      case "08":
+        main = "Aug";
+        break;
+      case "09":
+        main = "Sep";
+        break;
+      case "10":
+        main = "Oct";
+        break;
+      case "11":
+        main = "Nov";
+        break;
+      case "12":
+        main = "Dec";
+        break;
+      default:
+        main = "Invalid month";
+        break;
+    }
+    return main;
+  },
 };

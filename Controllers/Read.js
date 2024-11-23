@@ -16,7 +16,6 @@ exports.ReadUser = async (req, res, next) => {
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     ModelAgent.aggregate([
       { $match: { _id: new ObjectId(decoded.id) } },
       {
@@ -67,13 +66,20 @@ exports.readUserAdmin = (req, res) => {
       return res.status(404).json("token expired");
     }
 
-    ModelAgentAdmin.findOne(
-      { _id: new ObjectId(decoded.id), active: true },
-      { password: 0 }
-    )
+    ModelAgentAdmin.aggregate([
+      { $match: { _id: new ObjectId(decoded.id), active: true } },
+      {
+        $lookup: {
+          from: "roles",
+          localField: "role",
+          foreignField: "idRole",
+          as: "roles",
+        },
+      },
+    ])
       .then((response) => {
-        if (response) {
-          return res.status(200).json(response);
+        if (response.length > 0) {
+          return res.status(200).json(response[0]);
         } else {
           return res.status(404).json("token expired");
         }

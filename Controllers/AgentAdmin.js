@@ -5,9 +5,9 @@ module.exports = {
   //Corbeille done
   AddAdminAgent: (req, res) => {
     try {
-      const { nom, codeAgent, fonction } = req.body;
+      const { nom, codeAgent, fonction, role } = req.body;
       //Agent admin qui fait l'operation
-      if (!nom || !codeAgent || !fonction) {
+      if (!nom || !codeAgent || !fonction || !role) {
         return res.status(404).json("Veuillez renseigner les champs");
       }
       asyncLab.waterfall(
@@ -31,6 +31,7 @@ module.exports = {
               password: "1234",
               fonction,
               codeAgent,
+              role,
               id: new Date(),
             })
               .then((result) => {
@@ -59,7 +60,6 @@ module.exports = {
     }
   },
   //Corbeille done
-
   ReadAgentAdmin: (req, res) => {
     try {
       ModelAgentAdmin.find({})
@@ -161,6 +161,27 @@ module.exports = {
         })
         .catch(function (err) {
           return res.status(200).json("Error " + err);
+        });
+    } catch (error) {
+      console.log(error);
+    }
+  },
+  EditAgent: (req, res) => {
+    try {
+      const { id, data } = req.body;
+      if (!id || !data) {
+        return res.status(404).json("Veuillez renseigner les champs");
+      }
+      ModelAgentAdmin.findByIdAndUpdate(id, { $set: data }, { new: true })
+        .then((result) => {
+          if (result) {
+            return res.status(200).json(result);
+          } else {
+            return res.status(404).json("Error");
+          }
+        })
+        .catch(function (err) {
+          return res.status(404).json("Erro " + err);
         });
     } catch (error) {
       console.log(error);

@@ -28,7 +28,7 @@ const {
   Info_Client,
   AddPlainteSupport,
 } = require("../Controllers/Issue/AdresseClient");
-const { IssueRapport, Technical } = require("../Controllers/Rapport");
+const { Technical } = require("../Controllers/Rapport");
 const {
   Soumission_Ticket,
   CreationTicket,
@@ -113,6 +113,8 @@ var storage = multer.diskStorage({
     cb(null, true);
   },
 });
+var upload = multer({ storage: storage });
+
 var upload = multer({ storage: storage });
 router.post("/regularisation", protect, Regularisation);
 router.post("/repo_volontaire", protect, Repo_Volontaire);

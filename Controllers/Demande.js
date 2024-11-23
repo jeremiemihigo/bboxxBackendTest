@@ -1,13 +1,9 @@
 const modelDemande = require("../Models/Demande");
 const modelAgentAdmin = require("../Models/Agent");
 const asyncLab = require("async");
-const { generateNumber } = require("../Static/Static_Function");
+const { returnMois } = require("../Static/Static_Function");
 const { ObjectId } = require("mongodb");
 const modelRapport = require("../Models/Rapport");
-const fs = require("fs");
-const sharp = require("sharp");
-const _ = require("lodash");
-const moment = require("moment");
 const ModelCorbeille = require("../Models/Corbeille");
 
 module.exports = {
@@ -30,8 +26,8 @@ module.exports = {
         cell, //placeholder = Cell/Ward
         reference, //placeholder = Reference
         sat, //placeholder = SAT
-        filename,
       } = req.body;
+      const { filename } = req.file;
 
       const idDemande = new Date().getTime();
       if (
@@ -51,7 +47,7 @@ module.exports = {
           .status(201)
           .json("Veuillez renseigner la raison de non payement");
       }
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       const io = req.io;
       asyncLab.waterfall(
         [
@@ -180,7 +176,7 @@ module.exports = {
     }
   },
   ToutesDemande: (req, res) => {
-    const periode = moment(new Date()).format("MM-YYYY");
+    let periode = returnMois();
     try {
       asyncLab.waterfall([
         function (done) {
@@ -383,7 +379,7 @@ module.exports = {
   ToutesDemandeAttente: (req, res) => {
     try {
       const { limit } = req.params;
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       asyncLab.waterfall(
         [
           function (done) {
@@ -429,7 +425,6 @@ module.exports = {
   updateDemandeAgent: (req, res) => {
     try {
       const { id, data } = req.body;
-      console.log(req.body);
       asyncLab.waterfall(
         [
           function (done) {
@@ -529,7 +524,7 @@ module.exports = {
                   { new: true }
                 )
                 .then((response) => {
-                  done(null, response);
+                  done(response);
                 })
                 .catch(function (err) {
                   console.log(err);
@@ -538,23 +533,6 @@ module.exports = {
             } catch (error) {
               console.log(error);
             }
-          },
-          function (demande, done) {
-            const path = `ImagesController/${demande.file}`;
-            const pathdelete = `./ImagesController/${demande.file}`;
-
-            sharp(path)
-              .png({ quality: 30 })
-              .toFile(`./Images/${demande.file}`)
-              .then((result) => {
-                fs.unlink(pathdelete, (err) => {
-                  console.log(err);
-                });
-                done(demande);
-              })
-              .catch(function (err) {
-                console.log(err);
-              });
           },
         ],
         function (result) {

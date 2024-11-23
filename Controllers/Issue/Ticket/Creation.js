@@ -27,6 +27,7 @@ module.exports = {
         adresse,
         shop,
         commentaire,
+        audio,
       } = req.body;
       if (
         !typePlainte ||
@@ -104,6 +105,7 @@ module.exports = {
                 statut: soumission_shop,
                 shop,
                 periode: periodes,
+                audio,
                 property, //to Add
                 resultat: [
                   {
@@ -470,6 +472,7 @@ module.exports = {
         type,
         shop,
         commentaire,
+        audio,
       } = req.body;
 
       if (
@@ -550,6 +553,7 @@ module.exports = {
                 type,
                 commentaire,
                 periode: periodes,
+                audio,
                 resultat: [
                   {
                     nomAgent: nom,

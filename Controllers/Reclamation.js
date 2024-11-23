@@ -2,7 +2,7 @@ const asyncLab = require("async");
 const modelReclamation = require("../Models/Reclamation");
 const modelDemande = require("../Models/Demande");
 const { ObjectId } = require("mongodb");
-const moment = require("moment");
+const { returnMois } = require("../Static/Static_Function");
 
 module.exports = {
   Reclamation: (req, res) => {
@@ -90,7 +90,7 @@ module.exports = {
   },
   demandeIncorrect: (req, res) => {
     try {
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       asyncLab.waterfall(
         [
           function (done) {

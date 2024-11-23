@@ -14,10 +14,8 @@ app.use(express.urlencoded({ limit: "50mb" }));
 // DB connection
 const connectDB = require("./config/Connection");
 connectDB();
-
 // Création du serveur HTTP
 const server = http.createServer(app);
-
 // Initialisation de Socket.io avec CORS activé
 const io = new Server(server, {
   cors: {
@@ -25,11 +23,9 @@ const io = new Server(server, {
     credentials: true,
   },
 });
-
 // Variables pour stocker les utilisateurs en ligne
 let onlineuser = [];
 let onlineuserTerrain = [];
-
 // Fonction pour ajouter un nouvel utilisateur
 const addNewUser = (codeAgent, nom, socketId, fonction, backOffice) => {
   if (fonction === "admin") {
@@ -92,27 +88,148 @@ app.use((req, res, next) => {
 });
 
 // Routes
-const Routes = require("./Routes/Route");
-app.use("/bboxx/support", Routes);
-app.use("/admin/rh", require("./Routes/RessourceH"));
+app.use("/bboxx/support", require("./Routes/Route"));
 app.use("/issue", require("./Routes/Issue"));
-app.use("/servey", require("./Routes/servey"));
+app.use("/dt", require("./Routes/DefaultTracker"));
 app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
-app.use("/bboxx/file", express.static(path.resolve(__dirname, "")));
+app.use("/bboxx/file", express.static(path.resolve(__dirname, "Fichiers")));
+app.use("/audio", require("./Routes/testaudio"));
 
 // Route de test
-app.get("/", (req, res) => {
-  return res.status(200).json({
-    nom: "PRINCE",
-    age: 10,
-  });
-});
+const ModelClient = require("./Models/Rapport");
+const ModelZone = require("./Models/Zone");
+const ModelShop = require("./Models/Shop");
+const ModelAgent = require("./Models/Agent");
 
-app.get("/lien", (req, res) => {
-  return res.status(200).json({
-    nom: "PRINCE DEUX",
-    age: 20,
-  });
+app.post("/insert", async (req, res) => {
+  const { data } = req.body;
+  try {
+    let table = [];
+    for (let i = 0; i < data.length; i++) {
+      table.push({
+        codeclient: data[i].codeclient,
+        codeCu: data[i].codeCu,
+        clientStatut: data[i].clientStatut,
+        PayementStatut: data[i].PayementStatut,
+        consExpDays: data[i].consExpDays,
+        idDemande: data[i].idDemande,
+        dateSave: data[i].dateSave.id,
+        codeAgent: data[i].codeAgent,
+        nomClient: data[i].nomClient,
+        idZone: data[i].idZone,
+        idShop: data[i].idShop,
+        adresschange: data[i].adresschange,
+        agentSave: data[i].agentSave,
+        demandeur: data[i].demandeur,
+        demande: {
+          typeImage: data[i].demande.typeImage,
+          numero: data[i].demande.numero,
+          commune: data[i].demande.commune,
+          updatedAt: data[i].demande.updatedAt.id,
+          statut: data[i].demande.statut,
+          sector: data[i].demande.sector,
+          lot: data[i].demande.lot,
+          cell: data[i].demande.cell,
+          reference: data[i].demande.reference,
+          sat: data[i].demande.sat,
+          raison: data[i].demande.raison,
+          jours: data[i].demande.jours,
+          file: data[i].demande.file,
+        },
+        coordonnee: data[i].coordonnee,
+        createdAt: data[i].createdAt.id,
+        updatedAt: data[i].updatedAt.id,
+      });
+    }
+    // Multiple documents insert
+    ModelClient.insertMany(table)
+      .then((result) => {
+        return res.status(200).json({ success: result });
+      })
+      .catch(function (err) {
+        return res.status(200).json({ error: err });
+      });
+  } catch (error) {
+    return res.status(200).json({ error });
+  }
+});
+app.post("/insert_zone", async (req, res) => {
+  const { data } = req.body;
+  try {
+    let table = [];
+    for (let i = 0; i < data.length; i++) {
+      table.push({
+        idZone: data[i].idZone,
+        denomination: data[i].denomination,
+        id: i,
+      });
+    }
+    // Multiple documents insert
+    ModelZone.insertMany(table)
+      .then((result) => {
+        return res.status(200).json(result);
+      })
+      .catch(function (err) {
+        console.log(err);
+      });
+  } catch (error) {
+    console.log(error);
+  }
+});
+app.post("/insert_shop", async (req, res) => {
+  const { data } = req.body;
+  try {
+    let table = [];
+    for (let i = 0; i < data.length; i++) {
+      table.push({
+        shop: data[i].shop,
+        adresse: data[i].adresse,
+        idShop: data[i].idShop,
+        idZone: data[i].idZone,
+        id: i,
+      });
+    }
+    // Multiple documents insert
+    ModelShop.insertMany(table)
+      .then((result) => {
+        return res.status(200).json(result);
+      })
+      .catch(function (err) {
+        console.log(err);
+      });
+  } catch (error) {
+    console.log(error);
+  }
+});
+app.post("/insert_agent", async (req, res) => {
+  const { data } = req.body;
+  try {
+    let table = [];
+    for (let i = 0; i < data.length; i++) {
+      table.push({
+        nom: data[i].nom,
+        codeAgent: data[i].codeAgent,
+        codeZone: data[i].codeZone,
+        fonction: data[i].fonction,
+        idShop: data[i].idShop,
+        telephone: data[i].telephone,
+        active: data[i].active,
+        id: i,
+        first: data[i].first,
+        password: data[i].password,
+      });
+    }
+    // Multiple documents insert
+    ModelAgent.insertMany(table)
+      .then((result) => {
+        return res.status(200).json(result);
+      })
+      .catch(function (err) {
+        console.log(err);
+      });
+  } catch (error) {
+    console.log(error);
+  }
 });
 
 // Démarrage du serveur

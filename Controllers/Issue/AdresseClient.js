@@ -20,7 +20,6 @@ module.exports = {
       if (!id || !valeur || !idPlainte) {
         return res.status(201).json("Error");
       }
-      const io = req.io;
       modelRapport
         .findByIdAndUpdate(
           id,
@@ -55,6 +54,7 @@ module.exports = {
         raison,
         codeclient,
         shop,
+        audio,
         contact,
         nomClient,
         plainteSelect,
@@ -99,6 +99,7 @@ module.exports = {
                 codeclient,
                 nomClient,
                 time_delai,
+                audio,
                 contact,
                 typePlainte,
                 periode,
@@ -142,6 +143,7 @@ module.exports = {
         shop,
         contact,
         nomClient,
+        audio,
         plainteSelect,
         typePlainte,
         num_synchro,
@@ -194,6 +196,7 @@ module.exports = {
                 idPlainte: new Date().getTime(),
                 repo_volontaire: { num_synchro, materiel },
                 dateSave: new Date().toISOString().split("T")[0],
+                audio,
               })
               .then((result) => {
                 done(result);
@@ -231,6 +234,7 @@ module.exports = {
         cu,
         date_coupure,
         raison,
+        audio,
       } = req.body;
       const date = new Date();
 
@@ -284,6 +288,7 @@ module.exports = {
                 idPlainte: new Date().getTime(),
                 regularisation: { jours, cu, date_coupure, raison },
                 dateSave: new Date().toISOString().split("T")[0],
+                audio,
               })
               .then((result) => {
                 done(result);
@@ -318,6 +323,7 @@ module.exports = {
         typePlainte,
         kit,
         num_synchro,
+        audio,
       } = req.body;
       const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       const date = new Date();
@@ -370,6 +376,7 @@ module.exports = {
                 idPlainte: date.getTime(),
                 downgrade: { kit, num_synchro },
                 dateSave: date.toISOString().split("T")[0],
+                audio,
               })
               .then((result) => {
                 done(result);
@@ -403,6 +410,7 @@ module.exports = {
         plainteSelect,
         typePlainte,
         materiel,
+        audio,
       } = req.body;
       const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       const date = new Date();
@@ -454,6 +462,7 @@ module.exports = {
                 idPlainte: new Date().getTime(),
                 upgrade: materiel,
                 dateSave: date.toISOString().split("T")[0],
+                audio,
               })
               .then((result) => {
                 done(result);
@@ -534,6 +543,7 @@ module.exports = {
                       laststatus: plainte.statut,
                       changeto: fermeture,
                       commentaire: raison,
+                      audio,
                     },
                   },
                 },
@@ -571,6 +581,7 @@ module.exports = {
         plainteSelect,
         typePlainte,
         adresse,
+        audio,
       } = req.body;
       const property = req.user.plainte_callcenter ? "callcenter" : "shop";
       if (
@@ -619,6 +630,7 @@ module.exports = {
               property,
               adresse,
               type: "support",
+              audio,
             })
             .then((result) => {
               if (result) {

@@ -29,44 +29,44 @@ UserSchema.index({ codeAgent: 1, password: 1 });
 UserSchema.index({ codeAgent: 1, active: 1 });
 UserSchema.index({ codeAgent: 1, active: 1, codeZone: 1 });
 
-UserSchema.pre("insertMany", async function (next, docs) {
-  if (Array.isArray(docs) && docs.length) {
-    const hashedUsers = docs.map(async (user) => {
-      return await new Promise((resolve, reject) => {
-        bcrypt
-          .genSalt(10)
-          .then((salt) => {
-            let password = user.password.toString();
-            bcrypt
-              .hash(password, salt)
-              .then((hash) => {
-                user.password = hash;
-                resolve(user);
-              })
-              .catch((e) => {
-                reject(e);
-              });
-          })
-          .catch((e) => {
-            reject(e);
-          });
-      });
-    });
-    docs = await Promise.all(hashedUsers);
-    next();
-  } else {
-    return next(new Error("User list should not be empty")); // lookup early return pattern
-  }
-});
+// UserSchema.pre("insertMany", async function (next, docs) {
+//   if (Array.isArray(docs) && docs.length) {
+//     const hashedUsers = docs.map(async (user) => {
+//       return await new Promise((resolve, reject) => {
+//         bcrypt
+//           .genSalt(10)
+//           .then((salt) => {
+//             let password = user.password.toString();
+//             bcrypt
+//               .hash(password, salt)
+//               .then((hash) => {
+//                 user.password = hash;
+//                 resolve(user);
+//               })
+//               .catch((e) => {
+//                 reject(e);
+//               });
+//           })
+//           .catch((e) => {
+//             reject(e);
+//           });
+//       });
+//     });
+//     docs = await Promise.all(hashedUsers);
+//     next();
+//   } else {
+//     return next(new Error("User list should not be empty")); // lookup early return pattern
+//   }
+// });
 
-UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
+// UserSchema.pre("save", async function (next) {
+//   if (!this.isModified("password")) {
+//     next();
+//   }
+//   const salt = await bcrypt.genSalt(10);
+//   this.password = await bcrypt.hash(this.password, salt);
+//   next();
+// });
 
 UserSchema.methods.matchPasswords = async function (password) {
   return await bcrypt.compare(password, this.password);

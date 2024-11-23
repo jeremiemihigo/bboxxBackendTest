@@ -45,22 +45,19 @@ const schema = new mongoose.Schema(
     lot: { type: String, required: true },
     jours: { type: Number, required: false },
     typeVisit: {
-      followup: {
-        type: String,
-        required: true,
-        default: "visit",
-        enum: ["visit", "followup"],
-      },
       dateFollowup: { type: Date, required: false },
-      codeclient: { type: String, required: false },
+      //ID de la premiere visite
+      visiteFollowup: { type: String, required: false },
     },
+    //Pour les doublons
+    double: { type: double, required: false },
     feedback: {
       type: String,
       required: true,
       default: "new",
-      enum: ["new", "chat"],
+      //Chat ou non conforme
+      enum: ["new", "chat", "doublon", "followup"],
     },
-    double: { type: double, required: false },
   },
   {
     timestamps: true,

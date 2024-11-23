@@ -7,6 +7,7 @@ const result = new mongoose.Schema({
   laststatus: { type: String, required: false },
   changeto: { type: String, required: true },
   commentaire: { type: String, required: false },
+  audio: { type: String, required: false },
   delai: { type: String, required: false, enum: ["OUT SLA", "IN SLA"] },
 });
 const downgrade = new mongoose.Schema({
@@ -112,6 +113,7 @@ const schema = new mongoose.Schema(
       createdBy: String,
       numSynchro: String,
     },
+    audio: { type: String, required: true },
   },
   { timestamps: true }
 );

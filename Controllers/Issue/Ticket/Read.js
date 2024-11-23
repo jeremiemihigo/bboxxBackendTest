@@ -77,7 +77,7 @@ module.exports = {
                   {
                     type: "ticket",
                     periode: periode,
-                    shop: { $in: synchro_shop },
+                    //shop: { $in: synchro_shop },
                   },
                 ],
               };
@@ -89,7 +89,7 @@ module.exports = {
                   {
                     type: "ticket",
                     periode: periode,
-                    shop: { $in: synchro_shop },
+                    //shop: { $in: synchro_shop },
                   },
                   { open: true, type: "support", periode: periode },
                   { open: true, operation: "backoffice" },

@@ -1,11 +1,10 @@
 const asyncLab = require("async");
 const ModelDemande = require("../Models/Demande");
-const _ = require("lodash");
 const dayjs = require("dayjs");
 const Reclamation = require("../Models/Reclamation");
 const modelRapport = require("../Models/Rapport");
 const modelAppel = require("../Models/Issue/Appel_Issue");
-const moment = require("moment");
+const { returnMois } = require("../Static/Static_Function");
 
 module.exports = {
   reponse: (req, res, next) => {
@@ -49,35 +48,25 @@ module.exports = {
       }
       const dates = new Date().toISOString();
       const io = req.io;
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
 
       asyncLab.waterfall(
         [
           function (done) {
             modelRapport
-              .findOne(
-                {
-                  "demande.lot": periode.toString(),
-                  codeclient: codeClient.trim(),
-                  "demandeur.fonction": fonctionAgent,
-                },
-                {
-                  demandeur: 1,
-                  codeclient: 1,
-                  idDemande: 1,
-                  "demande.createdAt": 1,
-                  createdAt: 1,
-                }
-              )
+              .findOne({
+                "demande.lot": periode.toString(),
+                codeclient: codeClient.trim(),
+                "demandeur.fonction": fonctionAgent,
+              })
               .lean()
               .then((doublon) => {
                 if (doublon) {
                   let doubleAgent =
                     doublon.demandeur.codeAgent === codeAgentDemandeur;
-
                   if (doubleAgent) {
                     if (
-                      new Date(doublon.demande.createdAt).getDate() ===
+                      new Date(doublon.demande.updatedAt).getDate() ===
                       new Date(createdAt).getDate()
                     ) {
                       done(null, "oneDay", doublon);
@@ -86,10 +75,10 @@ module.exports = {
                     }
                   } else {
                     let double = {
-                      codeclient: doublon.codeclient,
                       precedent: doublon.idDemande,
-                      present: idDemande,
                       agentCo: codeAgent,
+                      present: doublon.idDemande,
+                      type: "doublon",
                       message: `visite effectuée le ${dayjs(
                         doublon.demande.createdAt
                       ).format("DD/MM/YYYY")} par ${
@@ -109,9 +98,12 @@ module.exports = {
           function (type, doublon, done) {
             if (type === "oneDay") {
               let double = {
-                idDemande,
+                precedent: doublon.idDemande,
+                present: doublon.idDemande,
                 agentCo: codeAgent,
-                doublon: doublon.codeclient,
+                type: "doublon",
+                message: `Cette demande a déjà reçu une réponse`,
+                _idDemande,
               };
               io.emit("chat", { idDemande });
               req.recherche = double;
@@ -123,11 +115,10 @@ module.exports = {
                 {
                   $set: {
                     typeVisit: {
-                      followup: "followup",
                       dateFollowup: doublon?.createdAt,
-                      codeclient: doublon?.codeclient,
+                      visiteFollowup: doublon.idDemande,
                     },
-                    feedback: "chat",
+                    feedback: "followup",
                   },
                 }
               )
@@ -268,7 +259,7 @@ module.exports = {
   //A demolir
   ReponseDemandeLot: (req, res) => {
     try {
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       asyncLab.waterfall(
         [
           function (done) {
@@ -315,7 +306,7 @@ module.exports = {
   SupprimerReponse: (req, res) => {
     try {
       const { id, message } = req.body;
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       asyncLab.waterfall(
         [
           function (done) {

@@ -1,9 +1,7 @@
 const { ObjectId } = require("mongodb");
 const modelParametre = require("../Models/Parametre");
 const modelPeriode = require("../Models/Periode");
-const asyncLab = require("async");
-const modelValve = require("../Models/Valve");
-const moment = require("moment");
+const { returnMois } = require("../Static/Static_Function");
 
 module.exports = {
   Parametre: (req, res) => {
@@ -25,51 +23,10 @@ module.exports = {
       console.log(error);
     }
   },
-  ReadParametre: (req, res) => {
-    const recherche = req.recherche;
-    let match = recherche ? { $match: { _id: new ObjectId(recherche) } } : {};
-    try {
-      modelParametre
-        .aggregate([
-          match,
-          {
-            $lookup: {
-              from: "zones",
-              localField: "region",
-              foreignField: "idZone",
-              as: "region",
-            },
-          },
-          {
-            $unwind: "$region",
-          },
-          {
-            $lookup: {
-              from: "shops",
-              localField: "shop",
-              foreignField: "idShop",
-              as: "shop",
-            },
-          },
-          {
-            $unwind: "$shop",
-          },
-        ])
-        .then((response) => {
-          let data = recherche ? response[0] : response;
-          return res.status(200).json(data);
-        })
-        .catch(function (err) {
-          console.log(err);
-        });
-    } catch (error) {
-      console.log(error);
-    }
-  },
 
   ReadPeriodeActive: (req, res) => {
     try {
-      let periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       return res.status(200).json(periode);
     } catch (error) {
       console.log(error);
@@ -145,107 +102,62 @@ module.exports = {
       console.log(error);
     }
   },
-  updateClient: (req, res, next) => {
+  SetFeedback: (req, res) => {
     try {
-      const { customer, nomClient, codeCu, idZone, idShop } = req.body;
-      if (!nomClient || !codeCu || !idZone || !idShop) {
-        return res
-          .status(201)
-          .json("Veuillez renseigner le nom, cu, region et shop du client");
-      }
-
-      asyncLab.waterfall([
-        function (done) {
-          modelParametre
-            .findOneAndUpdate(
-              { customer },
-              {
-                $set: {
-                  customer_cu: codeCu,
-                  shop: idShop,
-                  region: idZone,
-                  nomClient,
-                },
-              },
-              {
-                new: true,
-              }
-            )
-            .then((response) => {
-              done(null, response);
-            })
-            .catch(function (err) {
-              console.log(err);
-            });
-        },
-        function (client, done) {
-          if (client) {
-            req.recherche = client._id;
-            next();
-          }
-        },
-      ]);
-    } catch (error) {
-      console.log(error);
-    }
-  },
-  //set follow up
-  setFollow_up: (req, res) => {
-    try {
-      const { data } = req.body;
-      modelPeriode
-        .updateOne({}, { $set: data }, { new: true })
-        .then((result) => {
-          if (result) {
-            return res.status(200).json(result);
-          } else {
-            return res.status(201).json("Error");
-          }
-        })
-        .catch(function (err) {
-          return res.status(201).json("Error " + err);
-        });
-    } catch (error) {
-      console.log(error);
-    }
-  },
-
-  Add_Valve: (req, res) => {
-    try {
-      const io = req.io;
+      const { title } = req.body;
       const { nom } = req.user;
-      const { body, title } = req.body;
-      if (!body || !title) {
-        return res.status(201).json("Veuillez renseigner les champs");
+      if (!title) {
+        return res.status(201).json("Veuillez renseigner le champs");
       }
-      modelValve
-        .create({
-          body,
-          title,
-          savedBy: nom,
-        })
+      modelPeriode
+        .findOneAndUpdate(
+          {},
+          {
+            $addToSet: {
+              feedbackvm: {
+                title,
+                savedby: nom,
+              },
+            },
+          },
+          { new: true }
+        )
         .then((result) => {
           if (result) {
-            io.emit("valve", result);
             return res.status(200).json(result);
-          } else {
-            return res.status(201).json("Error");
           }
         })
         .catch(function (err) {
           console.log(err);
         });
-    } catch (error) {
-      console.log(error);
-    }
+    } catch (error) {}
   },
-  Read_Valve: (req, res) => {
+  DeleteOneItem: (req, res) => {
+    const { id } = req.body;
+    modelPeriode
+      .updateOne(
+        {},
+        { $pull: { feedbackvm: { _id: new ObjectId(id) } } },
+        { new: true }
+      )
+      .then((result) => {
+        if (result) {
+          return res.status(200).json(id);
+        } else {
+          return res.status(201).json("This feedback no longer exists");
+        }
+      })
+      .catch(function (err) {
+        return res.status(201).json("Error " + err);
+      });
+  },
+  ReadParametre: (req, res) => {
     try {
-      modelValve
+      modelPeriode
         .find({})
         .lean()
         .then((result) => {
-          return res.status(200).json(result.reverse());
+          return res.status(200).json(result);
         })
         .catch(function (err) {
           console.log(err);
@@ -253,5 +165,32 @@ module.exports = {
     } catch (error) {
       console.log(error);
     }
+  },
+  SetObjectif: (req, res) => {
+    try {
+      const { nom } = req.user;
+      const { data } = req.body;
+      if (!data) {
+        return res.status(201).json("Veuillez renseigner le champs");
+      }
+      modelPeriode
+        .findOneAndUpdate(
+          {},
+          {
+            $set: {
+              objectif: { data, changeBy: nom, date: new Date() },
+            },
+          },
+          { new: true }
+        )
+        .then((result) => {
+          if (result) {
+            return res.status(200).json(result);
+          }
+        })
+        .catch(function (err) {
+          console.log(err);
+        });
+    } catch (error) {}
   },
 };

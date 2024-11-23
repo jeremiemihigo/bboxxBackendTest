@@ -1,8 +1,8 @@
 const modelDemande = require("../Models/Demande");
 const _ = require("lodash");
 const asyncLab = require("async");
-const moment = require("moment");
 const Report = require("../Models/Rapport");
+const { returnMois } = require("../Static/Static_Function");
 
 module.exports = {
   demandePourChaquePeriode: (req, res) => {
@@ -17,6 +17,7 @@ module.exports = {
         {
           $sort: { _id: -1 },
         },
+        { $limit: 7 },
       ]).then((result) => {
         return res.status(200).json(result.reverse());
       });
@@ -27,7 +28,7 @@ module.exports = {
   readPeriodeGroup: (req, res) => {
     try {
       const { codeAgent } = req.user;
-      const periode = moment(new Date()).format("MM-YYYY");
+      let periode = returnMois();
       asyncLab.waterfall([
         function (done) {
           modelDemande
@@ -56,6 +57,7 @@ module.exports = {
               },
             ])
             .then((response) => {
+              console.log(response);
               done(null, response.reverse());
             });
         },
@@ -67,16 +69,9 @@ module.exports = {
               (x) => x.reponse.length < 1 && x.feedback === "new"
             ),
             nConforme: reponse.filter(
-              (x) =>
-                x.reponse.length === 0 &&
-                x.feedback === "chat" &&
-                x?.typeVisit?.followup === "visit"
+              (x) => x.reponse.length === 0 && x.feedback === "chat"
             ),
-            followup: reponse.filter(
-              (x) =>
-                (x.reponse.length > 0 && x.reponse[0].followup === true) ||
-                x?.typeVisit?.followup === "followup"
-            ),
+            followup: reponse.filter((x) => x.feedback === "followup"),
             valide: reponse.filter((x) => x.reponse.length > 0),
             allData: reponse,
           });

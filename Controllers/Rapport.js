@@ -1,10 +1,9 @@
 const modelRapport = require("../Models/Rapport");
 const modelAppel = require("../Models/Issue/Appel_Issue");
 const asyncLab = require("async");
-const { differenceDays } = require("../Static/Static_Function");
+const { differenceDays, returnMois } = require("../Static/Static_Function");
 const modelCorbeille = require("../Models/Corbeille");
 const modelDemande = require("../Models/Demande");
-const moment = require("moment");
 
 module.exports = {
   Rapport: (req, res) => {
@@ -102,29 +101,39 @@ module.exports = {
   },
   RapportFollowUp: (req, res) => {
     try {
-      const mois = moment(new Date()).format("MM-YYYY");
+      let mois = returnMois();
       const { dataTosearch } = req.body;
       let match_not_followup = dataTosearch
         ? {
             lot: mois,
-            "typeVisit.followup": "followup",
+            feedback: "followup",
             [dataTosearch.key]: dataTosearch.value,
           }
         : {
             lot: mois,
-            "typeVisit.followup": "followup",
+            feedback: "followup",
           };
-
       modelDemande
-        .find(match_not_followup)
-        .lean()
+        .aggregate([
+          { $match: match_not_followup },
+          {
+            $lookup: {
+              from: "rapports",
+              localField: "typeVisit.visiteFollowup",
+              foreignField: "idDemande",
+              as: "follow",
+            },
+          },
+        ])
         .then((result) => {
           return res.status(200).json(result);
         })
         .catch(function (err) {
           console.log(err);
         });
-    } catch (error) {}
+    } catch (error) {
+      console.log(error);
+    }
   },
   ContactClient: (req, res) => {
     try {
