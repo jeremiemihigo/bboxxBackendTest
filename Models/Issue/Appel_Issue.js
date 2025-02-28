@@ -7,32 +7,15 @@ const result = new mongoose.Schema({
   laststatus: { type: String, required: false },
   changeto: { type: String, required: true },
   commentaire: { type: String, required: false },
+  audio: { type: String, required: false },
   delai: { type: String, required: false, enum: ["OUT SLA", "IN SLA"] },
 });
-const downgrade = new mongoose.Schema({
-  kit: { type: String, required: true },
-  num_synchro: { type: String, required: true },
-});
+
 const technicien = new mongoose.Schema({
   assignBy: { type: String, required: true },
   codeTech: { type: String, required: true },
   date: { type: String, required: true },
   numSynchro: { type: String, required: true },
-});
-const adresse = new mongoose.Schema({
-  commune: { type: String, required: false },
-  quartier: { type: String, required: false },
-  avenue: { type: String, required: false },
-  reference: { type: String, required: false },
-  sat: { type: Object, required: false },
-  contact: { type: String, required: false },
-  shop: { type: Object, required: false },
-});
-const regularisation = new mongoose.Schema({
-  jours: { type: Number, required: true },
-  cu: { type: String, required: true },
-  date_coupure: { type: Date, required: true },
-  raison: { type: String, required: true },
 });
 
 const schema = new mongoose.Schema(
@@ -78,16 +61,27 @@ const schema = new mongoose.Schema(
       filename: String,
     },
     repo_volontaire: {
-      num_synchro: String,
-      materiel: Array,
+      type: {
+        num_synchro: String,
+        materiel: Array,
+      },
+      required: false,
     },
     regularisation: {
-      type: regularisation,
+      type: {
+        jours: Number,
+        cu: String,
+        date_coupure: Date,
+        raison: String,
+      },
       required: false,
     },
     upgrade: { type: String, required: false },
     downgrade: {
-      type: downgrade,
+      type: {
+        kit: String,
+        num_synchro: String,
+      },
       required: false,
     },
     technicien: {
@@ -96,7 +90,15 @@ const schema = new mongoose.Schema(
     },
     verification: { type: Array, required: false },
     adresse: {
-      type: adresse,
+      type: {
+        commune: String,
+        quartier: String,
+        avenue: String,
+        reference: String,
+        sat: String,
+        contact: String,
+        shop: String,
+      },
       required: false,
     },
     //Fin Ticket
@@ -112,6 +114,7 @@ const schema = new mongoose.Schema(
       createdBy: String,
       numSynchro: String,
     },
+    audio: { type: String, required: false },
   },
   { timestamps: true }
 );

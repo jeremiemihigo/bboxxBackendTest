@@ -96,4 +96,60 @@ module.exports = {
       console.log(error);
     }
   },
+  returnMoisLetter: (month) => {
+    let main;
+    switch (month) {
+      case "01":
+        main = "Jan";
+        break;
+      case "02":
+        main = "Feb";
+        break;
+      case "03":
+        main = "Mar";
+        break;
+      case "04":
+        main = "Apr";
+        break;
+      case "05":
+        main = "May";
+        break;
+      case "06":
+        main = "Jun";
+        break;
+      case "07":
+        main = "Jul";
+        break;
+      case "08":
+        main = "Aug";
+        break;
+      case "09":
+        main = "Sep";
+        break;
+      case "10":
+        main = "Oct";
+        break;
+      case "11":
+        main = "Nov";
+        break;
+      case "12":
+        main = "Dec";
+        break;
+      default:
+        main = "Invalid month";
+        break;
+    }
+    return main;
+  },
+  returnLastFirstDate: (date) => {
+    const currentDate = new Date(date);
+    const lastMonthDate = new Date(currentDate);
+    lastMonthDate.setMonth(currentDate.getMonth() - 1);
+    const l = lastMonthDate.toISOString().split("T")[0];
+    const lastDate = new Date(l);
+    lastMonthDate.setDate(1);
+    const f = lastMonthDate.toISOString().split("T")[0];
+    const firstDate = new Date(f);
+    return { lastDate, firstDate };
+  },
 };

@@ -8,7 +8,6 @@ const {
   ReadAgent,
   BloquerAgent,
   UpdateAgent,
-  InsertManyAgent,
 } = require("../Controllers/Agent");
 const {
   login,
@@ -32,13 +31,11 @@ const {
 } = require("../Controllers/Demande");
 const {
   Parametre,
-  ReadParametre,
-  ReadPeriodeActive,
   deleteParams,
   rechercheClient,
-  updateClient,
-  setFollow_up,
-  Add_Valve,
+  SetFeedback,
+  ReadParametre,
+  DeleteOneItem,
 } = require("../Controllers/Parametre");
 
 const multer = require("multer");
@@ -46,7 +43,7 @@ const {
   reponse,
   OneReponse,
   updateReponse,
-  ReponseDemandeLot,
+  // ReponseDemandeLot,
   SupprimerReponse,
 } = require("../Controllers/Reponse");
 const {
@@ -58,8 +55,8 @@ const {
 } = require("../Controllers/Rapport");
 const {
   Reclamation,
-  ReadMessage,
-  DeleteReclamation,
+  // ReadMessage,
+  // DeleteReclamation,
   demandeIncorrect,
 } = require("../Controllers/Reclamation");
 const {
@@ -70,12 +67,10 @@ const {
 
 var storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "ImagesController/");
+    cb(null, "Images/");
   },
   filename: (req, file, cb) => {
-    const image = file.originalname.split(".");
-
-    cb(null, `${Date.now()}.png`);
+    cb(null, `image_${Date.now()}.png`);
   },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -95,13 +90,11 @@ const {
 } = require("../Controllers/Doublon");
 
 router.get("/zone", ReadZone);
-router.get("/agent", ReadAgent);
+router.get("/agent", protect, ReadAgent);
 router.get("/user", ReadUser);
 router.get("/userAdmin", readUserAdmin);
-router.get("/message/:codeAgent", ReadMessage);
+// router.get("/message/:codeAgent", ReadMessage);
 
-router.get("/parametreRead", ReadParametre);
-router.put("/parametre", updateClient, ReadParametre);
 router.get("/customer/:codeclient", rechercheClient);
 router.get("/touteDemande", ToutesDemande);
 router.get("/toutesDemandeAttente/:limit", protect, ToutesDemandeAttente);
@@ -112,20 +105,25 @@ router.get("/oneReponse/:id", OneReponse);
 
 router.post("/paramatre", Parametre);
 router.post("/postzone", Zone);
-router.post("/postAgent", AddAgent, ReadAgent);
+router.post("/postAgent", protect, AddAgent, ReadAgent);
 router.post("/reponsedemande", protectReponse, reponse, Doublon);
 router.post("/reclamation", Reclamation);
 //Update
 router.put("/zone", AffecterZone);
 router.put("/reponse", protect, updateReponse);
-router.put("/bloquer", BloquerAgent, ReadAgent);
-router.put("/reset", resetPassword, ReadAgent);
-router.put("/resetAdmin", protect, resetPasswordAdmin);
-router.delete("/deleteReclamation/:id", DeleteReclamation);
-router.put("/agent", UpdateAgent, ReadAgent);
-router.post("/manyAgent", InsertManyAgent);
-router.put("/userId", UpdatePassword);
+router.put("/bloquer", protect, BloquerAgent, ReadAgent);
+
+//Reinitialisation agent
+router.put("/reset", protect, resetPassword, ReadAgent);
+//Reinitialisation agentadmin
+router.post("/resetAdmin", protect, resetPasswordAdmin);
+//Update default password
+router.post("/updatedefaultpwd", UpdatePassword);
 router.put("/userAdmin", UpdatePasswordAdmin);
+
+// router.delete("/deleteReclamation/:id", DeleteReclamation);
+router.put("/agent", UpdateAgent, ReadAgent);
+
 //Mobiles
 router.get("/demandeReponse/:id", ToutesDemandeAgent);
 router.get("/readDemande", DemandeAttente);
@@ -140,34 +138,25 @@ router.post("/loginUserAdmin", LoginAgentAdmin);
 router.get("/demandeAll/:lot/:codeAgent", lectureDemandeMobile);
 router.get("/paquet", protectTech, readPeriodeGroup);
 // router.get('/lot', searchPaquet)
-router.get("/periodeActive", ReadPeriodeActive);
-router.get("/demandePourChaquePeriode", demandePourChaquePeriode);
+router.get("/demandePourChaquePeriode", protect, demandePourChaquePeriode);
 router.delete("/deleteParams", deleteParams);
 
-router.get("/reponseAll", ReponseDemandeLot);
+// router.get("/reponseAll", ReponseDemandeLot);
 
 //Raison
-const {
-  AddRaison,
-  ReadRaison,
-  Ajuster,
-  UpdateRaison,
-} = require("../Controllers/Raison");
+
 const {
   AddAdminAgent,
-  ResetPasswords,
   ReadAgentAdmin,
   BloquerAgentAdmin,
   AddTache,
+  EditAgent,
 } = require("../Controllers/AgentAdmin");
 const { AddShop, ReadShop, UpdateOneField } = require("../Controllers/Shop");
-const { AddAction } = require("../Controllers/Action");
 
-const { AddSat } = require("../Controllers/Sat");
-const { Visited } = require("../Controllers/Tracking");
 const {
   set_Plainte_Shop,
-  set_backOffice,
+  set_ModelAgentAdmin,
 } = require("../Controllers/Permission");
 const {
   Communication,
@@ -177,10 +166,7 @@ const {
   UpdateCommuniquer,
 } = require("../Controllers/Communication");
 const { ReadCorbeille } = require("../Controllers/Corbeille");
-router.post("/ajuster", Ajuster);
-router.post("/raison", AddRaison);
-router.get("/raison", ReadRaison);
-router.put("/raison", UpdateRaison);
+const { AnalyseVisites } = require("../Controllers/Dashboard");
 
 //Shop
 router.post("/shop", AddShop, ReadShop);
@@ -190,6 +176,7 @@ router.put("/shop", UpdateOneField);
 //Agent
 router.post("/addAdminAgent", AddAdminAgent);
 router.get("/readAgentAdmin", protect, ReadAgentAdmin);
+router.post("/editAgentadmin", protect, EditAgent);
 router.put("/bloquerAgentAdmin", protect, BloquerAgentAdmin);
 router.put(
   "/updateDemandeFile",
@@ -201,7 +188,6 @@ router.put("/updateDemande", updateDemandeAgent, R_Insert_Updated);
 router.get("/idDemande/:id", protect, chercherUneDemande);
 
 //Actions
-router.post("/action", AddAction);
 router.get("/demandeIncorrect", protect, demandeIncorrect);
 router.get("/doublon", ReadDoublon);
 router.post("/conformite", NonConformes);
@@ -212,15 +198,10 @@ router.put("/addTache", AddTache);
 
 router.post("/contact", protect, ContactClient);
 //Tracking default
-router.post("/visited", Visited);
-//Sat
-router.post("/addsat", AddSat);
 
 router.post("/setplainteshop", protect, set_Plainte_Shop);
-router.post("/backoffice", protect, set_backOffice);
+router.post("/edituseradminInfo", protect, set_ModelAgentAdmin);
 
-router.post("/periode", protect, setFollow_up);
-router.post("/valve", Add_Valve);
 router.get("/call_today", Call_ToDay);
 router.post("/refresh_payment", protect, Refresh_Payment);
 router.post("/communication", protect, Communication);
@@ -230,6 +211,12 @@ router.delete("/communication/:id", protect, DeleteCommuniquer);
 router.put("/communication", protect, UpdateCommuniquer);
 router.get("/get_corbeille", protect, ReadCorbeille);
 router.post("/deletedemande", protect, SupprimerReponse);
+
+router.post("/setFeedback", protect, SetFeedback);
+router.get("/readParametre", protect, ReadParametre);
+router.post("/deleteOneItem", protect, DeleteOneItem);
+
+router.post("/analyseVisites", protect, AnalyseVisites);
 
 //-------------------------------------Conge-------------------------------------
 

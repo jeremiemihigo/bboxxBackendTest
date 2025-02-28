@@ -19,16 +19,11 @@ const {
 } = require("../Controllers/Issue/Appel");
 const {
   updatedAdresse,
-  Regularisation,
-  Repo_Volontaire,
   Desengagement,
-  Downgrade,
-  Upgrade,
   Demande_FermeturePlainte,
-  Info_Client,
   AddPlainteSupport,
 } = require("../Controllers/Issue/AdresseClient");
-const { IssueRapport, Technical } = require("../Controllers/Rapport");
+const { Technical, Renseignement } = require("../Controllers/Rapport");
 const {
   Soumission_Ticket,
   CreationTicket,
@@ -37,6 +32,7 @@ const {
   Verification,
   Ticket_CallCenter,
   Edit_complaint,
+  Escalader,
 } = require("../Controllers/Issue/Ticket/Creation");
 const {
   ReadTech,
@@ -114,16 +110,12 @@ var storage = multer.diskStorage({
   },
 });
 var upload = multer({ storage: storage });
-router.post("/regularisation", protect, Regularisation);
-router.post("/repo_volontaire", protect, Repo_Volontaire);
-router.post("/downgrade", protect, Downgrade);
-router.post("/upgrade", protect, Upgrade);
+
 router.post("/desengagement", protect, upload.single("file"), Desengagement);
 
 router.get("/mybackoffice", protect, ReadMy_Backoffice);
 
 router.post("/fermeture_plainte", protect, Demande_FermeturePlainte);
-router.post("/info_client", protect, Info_Client);
 
 router.post("/addplainte_support", protect, AddPlainteSupport);
 router.get("/onecomplaint/:id", protect, ReadOneComplaint);
@@ -134,4 +126,7 @@ router.get("/notification_reader", protect, ReadMy_Notification);
 router.put("/edit_complet", protect, Edit_complaint);
 router.get("/backoffice_data", ReadData_Backoffice);
 router.get("/mydeedline/:type", protect, Mydeedline);
+
+router.post("/escalader", protect, Escalader);
+router.get("/r_renseignement", protect, Renseignement)
 module.exports = router;

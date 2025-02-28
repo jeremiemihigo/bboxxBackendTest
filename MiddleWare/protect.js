@@ -60,7 +60,7 @@ module.exports = {
       ModelAgentAdmin.findOne({
         _id: new ObjectId(decoded.id),
         active: true,
-        taches: "31660",
+        fonction: { $in: ["co", "superUser"] },
       })
         .then((user) => {
           if (user) {

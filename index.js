@@ -1,165 +1,106 @@
+// Importation des modules
 const express = require("express");
-const app = express();
 const path = require("path");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
+require("dotenv").config();
 
+// Initialisation d'Express
+const app = express();
+
+// Middlewares
 app.use(cors());
+// app.use(bodyParser.urlencoded());
+// app.use(bodyParser.json());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb" }));
 
-const bodyParser = require("body-parser");
-app.use(bodyParser.json());
-
-app.use(bodyParser.urlencoded({ extended: true }));
-
+// Connexion à la base de données
 const connectDB = require("./config/Connection");
+connectDB();
 
-const http = require("http");
+// Création du serveur HTTP
 const server = http.createServer(app);
-const { Server } = require("socket.io");
+
+// Initialisation de Socket.io avec CORS activé
 const io = new Server(server, {
   cors: {
     origin: "*",
+    credentials: true,
   },
 });
 
-require("dotenv").config();
-connectDB();
-
+// Variables pour stocker les utilisateurs en ligne
 let onlineuser = [];
-let onlineuserTerrain = [];
 
-const addNewUser = (codeAgent, nom, socketId, fonction, backoffice) => {
-  if (fonction === "admin") {
-    if (
-      onlineuser.filter((user) => user.codeAgent === codeAgent).length === 0
-    ) {
-      onlineuser.push({
-        codeAgent,
-        nom,
-        backoffice,
-        socketId,
-      });
-    } else {
-      const agents = onlineuser.filter((x) => x.codeAgent !== codeAgent);
-      agents.push({
-        codeAgent,
-        nom,
-        socketId,
-      });
-    }
+// Fonction pour ajouter un nouvel utilisateur
+const addNewUser = (codeAgent, nom, socketId, backOffice) => {
+  const userIndex = onlineuser.findIndex(
+    (user) => user.codeAgent === codeAgent
+  );
+  if (userIndex === -1) {
+    onlineuser.push({ codeAgent, nom, backOffice, socketId });
   } else {
-    if (
-      onlineuserTerrain.filter((user) => user.codeAgent === codeAgent)
-        .length === 0
-    ) {
-      onlineuserTerrain.push({
-        codeAgent,
-        socketId,
-      });
-    } else {
-      const agents = onlineuserTerrain.filter((x) => x.codeAgent !== codeAgent);
-      agents.push({
-        codeAgent,
-        socketId,
-      });
-    }
-  }
-};
-const removeUser = (socketId) => {
-  if (onlineuser.length > 0) {
-    onlineuser = onlineuser.filter((user) => user.socketId !== socketId);
+    onlineuser[userIndex] = { codeAgent, nom, backOffice, socketId };
   }
 };
 
+// Fonction pour retirer un utilisateur
+const removeUser = (socketId) => {
+  onlineuser = onlineuser.filter((user) => user.socketId !== socketId);
+};
+
+// Socket.io - Événement de connexion
 io.on("connection", (socket) => {
-  socket.on("newUser", (donner) => {
-    const { codeAgent, nom, fonction, backOffice } = donner;
-    addNewUser(codeAgent, nom, socket.id, fonction, backOffice);
+  socket.on("newUser", (data) => {
+    const { codeAgent, nom, backOffice } = data;
+    addNewUser(codeAgent, nom, socket.id, backOffice);
     io.emit("userConnected", onlineuser);
   });
+
+  // Gestion de la déconnexion
   socket.on("disconnect", () => {
     removeUser(socket.id);
     io.emit("userConnected", onlineuser);
   });
 });
 
+// Middleware pour injecter `io` et `users` dans les requêtes
 app.use((req, res, next) => {
   req.io = io;
   req.users = onlineuser;
-  return next();
+  next();
 });
-
+// Routes
 app.use("/bboxx/support", require("./Routes/Route"));
-app.use("/admin/rh", require("./Routes/RessourceH"));
 app.use("/issue", require("./Routes/Issue"));
-app.use("/servey", require("./Routes/servey"));
+app.use("/dt", require("./Routes/DefaultTracker"));
 app.use("/bboxx/image", express.static(path.resolve(__dirname, "Images")));
 app.use("/bboxx/file", express.static(path.resolve(__dirname, "Fichiers")));
+app.use("/bboxx/terrain", require("./Routes/Terrain"));
+app.use("/bboxx/dashboard", require("./Routes/dash_dt"));
+// app.use("/bboxx/portofolio", require("./Routes/Portofolio"));
 
-const fs = require("fs");
-app.post("/deleteImage", (req, res) => {
-  try {
-    const { demandes } = req.body;
-    for (let i = 0; i < demandes.length; i++) {
-      const pathdelete = `./Images/${demandes[i].file}`;
-      fs.unlink(pathdelete, (err) => {
-        console.log(err);
-      });
-    }
-  } catch (error) {
-    console.log(error);
-  }
+// Route spécifique pour récupérer des données de `Zone`
+const modelZone = require("./Models/Zone");
+app.get("/acceuil/log", (req, res) => {
+  modelZone
+    .find({})
+    .then((response) => {
+      return res.status(200).json(response.reverse());
+    })
+    .catch((err) => {
+      return res.status(200).json(err);
+    });
 });
-//Start server
-const port = process.env.PORT || 40002;
+
+// Route d'accueil
+app.get("/", (req, res) => {
+  return res.status(200).json("Done");
+});
+// Démarrage du serveur
+const port = process.env.PORT || 5000;
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-
-// const modelRapport = require("./Models/Rapport");
-// const AsyncLab = require("async");
-
-// app.post("/arranger", (req, res) => {
-//   try {
-//     AsyncLab.waterfall([
-//       function (done) {
-//         modelRapport
-//           .aggregate([
-//             { $match: { "demandeur.codeAgent": "b.nadine" } },
-//             {
-//               $lookup: {
-//                 from: "agents",
-//                 localField: "demandeur.nom",
-//                 foreignField: "nom",
-//                 as: "agent",
-//               },
-//             },
-//             { $unwind: "$agent" },
-//           ])
-//           .then((result) => {
-//             done(null, result);
-//           });
-//       },
-//       function (result, done) {
-//         for (let i = 0; i < result.length; i++) {
-//           modelRapport
-//             .findByIdAndUpdate(result[i]._id, {
-//               $set: {
-//                 "demandeur.codeAgent": result[i].agent.codeAgent,
-//                 updatedAt: result[i].updatedAt,
-//               },
-//             })
-//             .then((response) => {
-//               console.log(response);
-//             });
-//           console.log(i);
-//         }
-//       },
-//     ]);
-//   } catch (error) {
-//     console.log(error);
-//   }
-// });
-
-// // Socket.IO

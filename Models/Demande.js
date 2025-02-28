@@ -18,6 +18,7 @@ const schema = new mongoose.Schema(
     commune: { type: String, required: true },
     numero: { type: String, required: false },
     idShop: { type: String, required: false },
+    dateSave: { type: Date, required: true },
     codeAgent: {
       type: String,
       required: [true, "Le code agent est obligatoire"],
@@ -43,24 +44,22 @@ const schema = new mongoose.Schema(
     reference: { type: String, required: true },
     sat: { type: String, required: true },
     lot: { type: String, required: true },
+    itemswap: { type: String, required: false },
     jours: { type: Number, required: false },
     typeVisit: {
-      followup: {
-        type: String,
-        required: true,
-        default: "visit",
-        enum: ["visit", "followup"],
-      },
       dateFollowup: { type: Date, required: false },
-      codeclient: { type: String, required: false },
+      //ID de la premiere visite
+      visiteFollowup: { type: String, required: false },
     },
+    //Pour les doublons
+    double: { type: double, required: false },
     feedback: {
       type: String,
       required: true,
       default: "new",
-      enum: ["new", "chat"],
+      //Chat ou non conforme
+      enum: ["new", "chat", "doublon", "followup"],
     },
-    double: { type: double, required: false },
   },
   {
     timestamps: true,

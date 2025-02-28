@@ -16,6 +16,9 @@ const schema = new mongoose.Schema(
     fonction: { type: String, required: true },
     plainteShop: { type: String, required: false },
     synchro_shop: { type: Array, required: false },
+    //Default tracker
+    role: { type: String, required: false },
+    valueFilter: { type: Array, required: false },
   },
   { timestamps: true }
 );

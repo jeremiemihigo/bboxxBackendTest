@@ -3,7 +3,7 @@ const ModelAgent = require("../Models/Agent");
 const ModelAgentAdmin = require("../Models/AgentAdmin");
 const { ObjectId } = require("mongodb");
 
-exports.ReadUser = async (req, res, next) => {
+const ReadUser = async (req, res, next) => {
   let token;
   if (
     req.headers.authorization &&
@@ -16,7 +16,6 @@ exports.ReadUser = async (req, res, next) => {
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     ModelAgent.aggregate([
       { $match: { _id: new ObjectId(decoded.id) } },
       {
@@ -37,9 +36,9 @@ exports.ReadUser = async (req, res, next) => {
       },
       { $unwind: "$region" },
     ])
-      .then((login) => {
-        if (login) {
-          return res.status(200).json(login[0]);
+      .then((user) => {
+        if (user) {
+          return res.status(200).json(user[0]);
         }
       })
       .catch(function (error) {
@@ -49,7 +48,7 @@ exports.ReadUser = async (req, res, next) => {
     return res.status(400).json(error.message);
   }
 };
-exports.readUserAdmin = (req, res) => {
+const readUserAdmin = (req, res) => {
   try {
     let token;
     if (
@@ -67,13 +66,20 @@ exports.readUserAdmin = (req, res) => {
       return res.status(404).json("token expired");
     }
 
-    ModelAgentAdmin.findOne(
-      { _id: new ObjectId(decoded.id), active: true },
-      { password: 0 }
-    )
+    ModelAgentAdmin.aggregate([
+      { $match: { _id: new ObjectId(decoded.id), active: true } },
+      {
+        $lookup: {
+          from: "roles",
+          localField: "role",
+          foreignField: "idRole",
+          as: "roles",
+        },
+      },
+    ])
       .then((response) => {
-        if (response) {
-          return res.status(200).json(response);
+        if (response.length > 0) {
+          return res.status(200).json(response[0]);
         } else {
           return res.status(404).json("token expired");
         }
@@ -83,3 +89,4 @@ exports.readUserAdmin = (req, res) => {
       });
   } catch (error) {}
 };
+module.exports = { ReadUser, readUserAdmin };

@@ -44,6 +44,7 @@ const schema = new mongoose.Schema(
       lot: String,
       cell: String,
       reference: String,
+      itemswap: String,
       sat: String,
       raison: String,
       jours: Number,
@@ -54,14 +55,18 @@ const schema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-schema.index({ codeclient: 1 });
-schema.index({ idDemande: -1 });
-schema.index({ dateSave: -1 });
+schema.index({ idDemande: 1 });
+schema.index({ dateSave: 1 });
+schema.index({ "demandeur.codeAgent": 1 });
+schema.index(
+  { codeclient: 1, "demande.lot": 1, "demandeur.fonction": 1 },
+  { unique: true }
+);
 schema.post("save", function (doc, next) {
   next();
   modelDemande
     .findOneAndUpdate({ idDemande: doc.idDemande }, { $set: { valide: true } })
-    .then((response) => {})
+    .then(() => {})
     .catch(function (err) {});
 });
 
